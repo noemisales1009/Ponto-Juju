@@ -184,12 +184,18 @@ const Reports: React.FC = () => {
 
         setIsPrinting(true);
 
+        // Forçar largura mínima para captura completa
+        const originalWidth = input.style.width;
+        input.style.width = '1200px';
+        input.style.minWidth = '1200px';
+
         html2canvas(input, {
-            scale: 2,
+            scale: 3,
             useCORS: true,
             logging: false,
-            width: input.scrollWidth,
+            width: 1200,
             height: input.scrollHeight,
+            windowWidth: 1200,
             onclone: (document) => {
                 document.documentElement.classList.remove('dark');
                 const filters = document.querySelector('.report-filters');
@@ -258,6 +264,11 @@ const Reports: React.FC = () => {
 
             const fileName = `relatorio-pontos-${new Date().toISOString().slice(0, 10)}.pdf`;
             pdf.save(fileName);
+            
+            // Restaurar largura original
+            input.style.width = originalWidth;
+            input.style.minWidth = '';
+            
             setIsPrinting(false);
         }).catch(err => {
             console.error("Erro ao gerar PDF:", err);
