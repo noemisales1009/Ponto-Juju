@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ponto Juju</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+      // Aplica o tema imediatamente para evitar FOUC (Flash of Unstyled Content)
+      if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
+            colors: {
+              // Light theme - Updated to Slate for softer look
+              'pmp-background': '#F8FAFC', // Slate-50
+              'pmp-surface': '#FFFFFF',
+              'pmp-primary': {
+                DEFAULT: '#6366F1', // indigo-500
+                'light': '#818CF8', // indigo-400
+                'dark': '#4F46E5', // indigo-600
+              },
+              'pmp-secondary': '#EC4899', // pink-500
+              'pmp-text-primary': '#1E293B', // Slate-800 (Softer than black)
+              'pmp-text-secondary': '#64748B', // Slate-500
+              'pmp-accent': '#F59E0B', // amber-500,
+
+              // Dark theme - Updated to nicer dark slate
+              dark: {
+                'pmp-background': '#0F172A', // Slate-900
+                'pmp-surface': '#1E293B', // Slate-800
+                'pmp-primary': {
+                  DEFAULT: '#818CF8', // indigo-400
+                  'light': '#A5B4FC', // indigo-300
+                  'dark': '#6366F1', // indigo-500
+                },
+                'pmp-secondary': '#F472B6', // pink-400
+                'pmp-text-primary': '#F1F5F9', // Slate-100
+                'pmp-text-secondary': '#94A3B8', // Slate-400
+                'pmp-accent': '#FBBF24', // amber-400,
+              }
+            }
+          },
+        },
+      }
+    </script>
+    <style>
+      body {
+        background-color: #F8FAFC; /* pmp-background */
+        font-family: 'Inter', sans-serif;
+        color: #1E293B;
+      }
+      .dark body {
+        background-color: #0F172A; /* dark:pmp-background */
+        color: #F1F5F9;
+      }
+      
+      /* Simple print styles as a fallback for browser's print function (Ctrl+P) */
+      @media print {
+        body {
+          background-color: #FFFFFF !important;
+          color: #000000 !important;
+        }
+        .no-print {
+          display: none !important;
+        }
+        .sm\:ml-64 {
+            margin-left: 0 !important;
+        }
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+    <!-- PDF Generation Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
