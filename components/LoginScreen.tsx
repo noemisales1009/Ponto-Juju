@@ -28,7 +28,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, error }) => {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
             </div>
-          <h1 className="text-3xl font-bold text-pmp-text-primary mt-6 tracking-tight">Ponto Juju</h1>
+          <h1 className="text-3xl font-bold text-pmp-text-primary mt-6 tracking-tight">Ponto Kids</h1>
           <p className="mt-2 text-sm text-pmp-text-secondary">
             Bem-vindo. Por favor, insira seu e-mail e senha.
           </p>
