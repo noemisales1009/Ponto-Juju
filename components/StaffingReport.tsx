@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Sector, Shift, ClockRecord, AbsenceRecord } from '../types';
 import { SECTOR_CONFIG, getSectorSlots } from '../constants';
-import { getClockRecords, getAbsenceRecords } from '../services/mockApi';
+import { supabase } from '../services/supabaseClient';
 import PDFStaffingReportContent from './PDFStaffingReportContent';
 
 interface DailyStatus {
@@ -17,13 +17,13 @@ interface DailyStatus {
 
 const StaffingReport: React.FC = () => {
     const [selectedSector, setSelectedSector] = useState<Sector>('UTI Ped');
-    const [selectedMonth, setSelectedMonth] = useState('2025-11');
+    const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
     const [monthlyData, setMonthlyData] = useState<DailyStatus[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isPrinting, setIsPrinting] = useState(false);
 
     useEffect(() => {
-        const processReportData = () => {
+        const processReportData = async () => {
             if (!selectedMonth || !selectedSector) return;
             setIsLoading(true);
 
@@ -31,14 +31,24 @@ const StaffingReport: React.FC = () => {
             const firstDayOfMonth = new Date(Date.UTC(year, month - 1, 1));
             const lastDayOfMonth = new Date(Date.UTC(year, month, 0));
             
-            const clockRecords = getClockRecords({ 
-                startDate: firstDayOfMonth.toISOString().split('T')[0], 
-                endDate: lastDayOfMonth.toISOString().split('T')[0] 
-            });
-            const absenceRecords = getAbsenceRecords({ 
-                startDate: firstDayOfMonth.toISOString().split('T')[0], 
-                endDate: lastDayOfMonth.toISOString().split('T')[0] 
-            });
+            const startDate = firstDayOfMonth.toISOString().split('T')[0];
+            const endDate = lastDayOfMonth.toISOString().split('T')[0];
+
+            // Buscar pontos do Supabase
+            const { data: pontos, error } = await supabase
+                .from('ponto_juju2')
+                .select('id, data_dia, turno, falta, setor_id')
+                .gte('data_dia', startDate)
+                .lte('data_dia', endDate);
+
+            if (error) {
+                console.error('❌ Erro ao buscar pontos:', error);
+                setMonthlyData([]);
+                setIsLoading(false);
+                return;
+            }
+
+            console.log('✅ Pontos carregados:', pontos?.length);
 
             const sectorConfig = SECTOR_CONFIG[selectedSector];
             if (!sectorConfig) {
@@ -46,6 +56,14 @@ const StaffingReport: React.FC = () => {
                 setIsLoading(false);
                 return;
             }
+
+            // Mapear nome do setor para ID
+            const sectorIdMap: Record<Sector, number> = {
+                'UTI Ped': 1,
+                'SEMI 2': 2,
+                'SEMI 1': 3
+            };
+            const sectorId = sectorIdMap[selectedSector];
 
             const daysInMonth = lastDayOfMonth.getUTCDate();
             const newMonthlyData: DailyStatus[] = [];
@@ -59,10 +77,14 @@ const StaffingReport: React.FC = () => {
 
                 const dailyShiftsStatus = sectorConfig.shifts.map(shift => {
                     const requiredSlots = getSectorSlots(selectedSector, shift, dateString);
-                    const presences = clockRecords.filter(r => r.date === dateString && r.sector === selectedSector && r.shift === shift);
-                    const absences = absenceRecords.filter(r => r.date === dateString && r.sector === selectedSector && r.shift === shift);
                     
-                    const totalFilled = presences.length + absences.length;
+                    // Contar quantos bateram ponto nesse dia/setor/turno
+                    const totalFilled = (pontos || []).filter(p => 
+                        p.data_dia === dateString && 
+                        p.setor_id === sectorId && 
+                        p.turno === shift
+                    ).length;
+                    
                     const missing = Math.max(0, requiredSlots - totalFilled);
 
                     return {
