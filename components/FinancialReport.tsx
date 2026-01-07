@@ -27,56 +27,60 @@ const FinancialReport: React.FC = () => {
         setIsLoading(true);
         try {
             const [year, monthNum] = monthYear.split('-');
-            const monthNumber = parseInt(monthNum);
 
-            console.log('🔍 Buscando financeiro:', { ano: parseInt(year), mes: monthNumber });
+            console.log('🔍 Buscando financeiro:', { ano: parseInt(year), mes: parseInt(monthNum) });
 
-            // Buscar diretamente da tabela ponto_juju2 e fazer o agrupamento aqui
             const firstDay = `${year}-${monthNum.padStart(2, '0')}-01`;
             const lastDay = `${year}-${monthNum.padStart(2, '0')}-31`;
 
+            // Buscar pontos do mês
             const { data: pontos, error: pontoError } = await supabase
                 .from('ponto_juju2')
-                .select(`
-                    id,
-                    data_dia,
-                    user_id,
-                    falta,
-                    valor_plantao,
-                    medicos_juju!inner (
-                        medico,
-                        cpf,
-                        banco,
-                        agencia,
-                        variacao,
-                        conta
-                    )
-                `)
+                .select('id, data_dia, user_id, falta, valor_plantao')
                 .gte('data_dia', firstDay)
                 .lte('data_dia', lastDay);
 
             if (pontoError) {
-                console.error('❌ Erro ao buscar dados:', pontoError);
+                console.error('❌ Erro ao buscar pontos:', pontoError);
                 setReportData([]);
                 setIsLoading(false);
                 return;
             }
 
-            console.log('✅ Pontos recebidos:', pontos);
+            // Buscar médicos
+            const userIds = [...new Set((pontos || []).map(p => p.user_id))];
+            const { data: medicos, error: medicoError } = await supabase
+                .from('medicos_juju')
+                .select('user_id, medico, cpf, banco, agencia, variacao, conta')
+                .in('user_id', userIds);
+
+            if (medicoError) {
+                console.error('❌ Erro ao buscar médicos:', medicoError);
+                setReportData([]);
+                setIsLoading(false);
+                return;
+            }
+
+            console.log('✅ Pontos:', pontos?.length, 'Médicos:', medicos?.length);
+
+            // Criar mapa de médicos
+            const medicoMap = new Map((medicos || []).map(m => [m.user_id, m]));
 
             // Agrupar por médico
             const grouped = (pontos || []).reduce((acc: any, ponto: any) => {
                 const userId = ponto.user_id;
+                const medico = medicoMap.get(userId);
+                
                 if (!acc[userId]) {
                     acc[userId] = {
                         userId: userId,
-                        userName: ponto.medicos_juju?.medico || 'Sem nome',
+                        userName: medico?.medico || 'Sem nome',
                         bankingInfo: {
-                            cpf: ponto.medicos_juju?.cpf,
-                            bank: ponto.medicos_juju?.banco,
-                            agency: ponto.medicos_juju?.agencia,
-                            variation: ponto.medicos_juju?.variacao,
-                            account: ponto.medicos_juju?.conta
+                            cpf: medico?.cpf || null,
+                            bank: medico?.banco || null,
+                            agency: medico?.agencia || null,
+                            variation: medico?.variacao || null,
+                            account: medico?.conta || null
                         },
                         totalShifts: 0,
                         totalToPay: 0
