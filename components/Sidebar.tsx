@@ -56,9 +56,12 @@ const NavLink: React.FC<{
 
 
 const Sidebar: React.FC<SidebarProps> = ({ user, currentView, setCurrentView, isOpen, setIsOpen, isAdmin = false }) => {
+    const [showAdminMenu, setShowAdminMenu] = React.useState(false);
+    
     const handleNavClick = (view: View) => {
         setCurrentView(view);
         setIsOpen(false);
+        setShowAdminMenu(false);
     };
   
     return (
@@ -189,24 +192,114 @@ const Sidebar: React.FC<SidebarProps> = ({ user, currentView, setCurrentView, is
           />
       </nav>
 
-      {/* Botão Flutuante Admin (Só Mobile) */}
+      {/* Botão Flutuante Admin + Menu (Só Mobile) */}
       {isAdmin && (
-        <button
-          onClick={() => handleNavClick('admin')}
-          className={`lg:hidden fixed bottom-20 right-4 z-50 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 ease-out hover:scale-110 active:scale-95 no-print ${
-            currentView === 'admin' 
-              ? 'bg-gradient-to-br from-pmp-primary to-pmp-primary-dark text-white ring-4 ring-pmp-primary/30' 
-              : 'bg-gradient-to-br from-gray-700 to-gray-800 text-white hover:from-pmp-primary hover:to-pmp-primary-dark'
-          }`}
-          aria-label="Admin"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-7 h-7">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          {currentView !== 'admin' && (
-            <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
+        <>
+          {/* Menu Expansível */}
+          {showAdminMenu && (
+            <>
+              {/* Backdrop */}
+              <div 
+                className="lg:hidden fixed inset-0 bg-black/20 backdrop-blur-sm z-40 no-print"
+                onClick={() => setShowAdminMenu(false)}
+              />
+              
+              {/* Menu de Opções Admin */}
+              <div className="lg:hidden fixed bottom-24 right-4 z-50 flex flex-col gap-2 no-print">
+                <button
+                  onClick={() => handleNavClick('staffing')}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg transition-all hover:scale-105 ${
+                    currentView === 'staffing' 
+                      ? 'bg-pmp-primary text-white' 
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200'
+                  }`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0h18M9.75 14.25h4.5" />
+                  </svg>
+                  <span className="font-medium text-sm">Escala</span>
+                </button>
+                
+                <button
+                  onClick={() => handleNavClick('financial')}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg transition-all hover:scale-105 ${
+                    currentView === 'financial' 
+                      ? 'bg-pmp-primary text-white' 
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200'
+                  }`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="font-medium text-sm">Financeiro</span>
+                </button>
+                
+                <button
+                  onClick={() => handleNavClick('management')}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg transition-all hover:scale-105 ${
+                    currentView === 'management' 
+                      ? 'bg-pmp-primary text-white' 
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200'
+                  }`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0m-9.75 0h6" />
+                  </svg>
+                  <span className="font-medium text-sm">Gerência</span>
+                </button>
+                
+                <button
+                  onClick={() => handleNavClick('reports')}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg transition-all hover:scale-105 ${
+                    currentView === 'reports' 
+                      ? 'bg-pmp-primary text-white' 
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200'
+                  }`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span className="font-medium text-sm">Relatórios</span>
+                </button>
+                
+                <button
+                  onClick={() => handleNavClick('admin')}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg transition-all hover:scale-105 ${
+                    currentView === 'admin' 
+                      ? 'bg-pmp-primary text-white' 
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200'
+                  }`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="font-medium text-sm">👨‍💼 Admin</span>
+                </button>
+              </div>
+            </>
           )}
-        </button>
+          
+          {/* Botão Principal */}
+          <button
+            onClick={() => setShowAdminMenu(!showAdminMenu)}
+            className={`lg:hidden fixed bottom-20 right-4 z-50 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 ease-out hover:scale-110 active:scale-95 no-print ${
+              showAdminMenu || ['staffing', 'financial', 'management', 'reports', 'admin'].includes(currentView)
+                ? 'bg-gradient-to-br from-pmp-primary to-pmp-primary-dark text-white ring-4 ring-pmp-primary/30' 
+                : 'bg-gradient-to-br from-gray-700 to-gray-800 text-white hover:from-pmp-primary hover:to-pmp-primary-dark'
+            }`}
+            aria-label="Menu Admin"
+          >
+            {showAdminMenu ? (
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-7 h-7">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-7 h-7">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+              </svg>
+            )}
+          </button>
+        </>
       )}
     </>
     );
