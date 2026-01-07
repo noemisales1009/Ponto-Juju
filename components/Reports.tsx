@@ -392,24 +392,24 @@ const Reports: React.FC = () => {
                 <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
                     <thead className="bg-slate-50 dark:bg-dark-pmp-surface/80">
                         <tr>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-pmp-text-secondary dark:text-dark-pmp-text-secondary uppercase tracking-wider">Data</th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-pmp-text-secondary dark:text-dark-pmp-text-secondary uppercase tracking-wider">Médico</th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-pmp-text-secondary dark:text-dark-pmp-text-secondary uppercase tracking-wider">Setor</th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-pmp-text-secondary dark:text-dark-pmp-text-secondary uppercase tracking-wider">Turno</th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-pmp-text-secondary dark:text-dark-pmp-text-secondary uppercase tracking-wider">Status</th>
+                            <th scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-semibold text-pmp-text-secondary dark:text-dark-pmp-text-secondary uppercase tracking-wider">Data</th>
+                            <th scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-semibold text-pmp-text-secondary dark:text-dark-pmp-text-secondary uppercase tracking-wider">Médico</th>
+                            <th scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-semibold text-pmp-text-secondary dark:text-dark-pmp-text-secondary uppercase tracking-wider">Setor</th>
+                            <th scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-semibold text-pmp-text-secondary dark:text-dark-pmp-text-secondary uppercase tracking-wider hidden sm:table-cell">Turno</th>
+                            <th scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-semibold text-pmp-text-secondary dark:text-dark-pmp-text-secondary uppercase tracking-wider">Status</th>
                         </tr>
                     </thead>
                     <tbody className="bg-pmp-surface dark:bg-dark-pmp-surface divide-y divide-slate-200 dark:divide-slate-700">
                         {displayedRecords.length > 0 ? displayedRecords.map(record => (
                             <tr key={record.id} className="hover:bg-pmp-primary/5 dark:hover:bg-dark-pmp-primary/10 transition-colors">
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary">
+                                <td className="px-3 sm:px-6 py-4 text-xs sm:text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary">
                                     {new Date(record.data_dia + 'T00:00:00').toLocaleDateString('pt-BR', {timeZone: 'UTC'})}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-pmp-text-primary dark:text-dark-pmp-text-primary">{record.usuario_nome}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary">{record.setor}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary">{record.turno}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                <td className="px-3 sm:px-6 py-4 text-xs sm:text-sm font-medium text-pmp-text-primary dark:text-dark-pmp-text-primary max-w-[120px] sm:max-w-none truncate">{record.usuario_nome}</td>
+                                <td className="px-3 sm:px-6 py-4 text-xs sm:text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary max-w-[80px] sm:max-w-none truncate">{record.setor}</td>
+                                <td className="px-3 sm:px-6 py-4 text-xs sm:text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary hidden sm:table-cell">{record.turno}</td>
+                                <td className="px-3 sm:px-6 py-4 text-xs sm:text-sm">
+                                    <span className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium ${
                                         record.falta === 'Sim'
                                         ? 'bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-300'
                                         : 'bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-300'
