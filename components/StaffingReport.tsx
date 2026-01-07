@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Sector, Shift, ClockRecord, AbsenceRecord } from '../types';
-import { SECTOR_CONFIG, getSectorSlots } from '../constants';
+import { SECTOR_CONFIG, getSectorSlots, SECTOR_ID_MAP, SHIFT_FULL_NAME_MAP } from '../constants';
 import { supabase } from '../services/supabaseClient';
 import PDFStaffingReportContent from './PDFStaffingReportContent';
 
@@ -57,13 +57,8 @@ const StaffingReport: React.FC = () => {
                 return;
             }
 
-            // Mapear nome do setor para ID
-            const sectorIdMap: Record<Sector, number> = {
-                'UTI Ped': 1,
-                'SEMI 2': 2,
-                'SEMI 1': 3
-            };
-            const sectorId = sectorIdMap[selectedSector];
+            // Usar o mapeamento correto de setor_id de constants.ts
+            const sectorId = SECTOR_ID_MAP[selectedSector];
 
             const daysInMonth = lastDayOfMonth.getUTCDate();
             const newMonthlyData: DailyStatus[] = [];
@@ -78,11 +73,14 @@ const StaffingReport: React.FC = () => {
                 const dailyShiftsStatus = sectorConfig.shifts.map(shift => {
                     const requiredSlots = getSectorSlots(selectedSector, shift, dateString);
                     
-                    // Contar quantos bateram ponto nesse dia/setor/turno
+                    // Usar SHIFT_FULL_NAME_MAP para encontrar todas as variações do nome do turno
+                    const shiftVariations = SHIFT_FULL_NAME_MAP[shift] || [shift];
+                    
+                    // Contar quantos bateram ponto nesse dia/setor/turno (incluindo variações do nome)
                     const totalFilled = (pontos || []).filter(p => 
                         p.data_dia === dateString && 
                         p.setor_id === sectorId && 
-                        p.turno === shift
+                        shiftVariations.includes(p.turno)
                     ).length;
                     
                     const missing = Math.max(0, requiredSlots - totalFilled);
