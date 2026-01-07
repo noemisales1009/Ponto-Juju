@@ -212,11 +212,20 @@ const Reports: React.FC = () => {
                     (table as HTMLElement).style.fontSize = '8px';
                     (table as HTMLElement).style.tableLayout = 'auto';
                 }
-                // Ajustar padding das células
+                // Forçar mostrar TODAS as colunas no PDF (incluindo Turno)
+                const hiddenElements = document.querySelectorAll('.hidden, .sm\\:table-cell');
+                hiddenElements.forEach(el => {
+                    (el as HTMLElement).style.display = 'table-cell';
+                    (el as HTMLElement).classList.remove('hidden');
+                });
+                // Ajustar padding das células e remover truncate
                 const cells = document.querySelectorAll('th, td');
                 cells.forEach(cell => {
                     (cell as HTMLElement).style.padding = '4px 6px';
                     (cell as HTMLElement).style.whiteSpace = 'nowrap';
+                    (cell as HTMLElement).style.maxWidth = 'none';
+                    (cell as HTMLElement).classList.remove('truncate');
+                    (cell as HTMLElement).style.overflow = 'visible';
                 });
                 // Ajustar badges de status
                 const badges = document.querySelectorAll('.inline-flex');
