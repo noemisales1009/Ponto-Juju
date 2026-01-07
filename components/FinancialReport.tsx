@@ -28,41 +28,70 @@ const FinancialReport: React.FC = () => {
         try {
             const [year, monthNum] = monthYear.split('-');
             const monthNumber = parseInt(monthNum);
-            const monthNames = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 
-                              'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
-            const monthName = monthNames[monthNumber - 1];
 
-            console.log('🔍 Buscando financeiro:', { ano: year, mes: monthNumber, nome_mes: monthName });
+            console.log('🔍 Buscando financeiro:', { ano: parseInt(year), mes: monthNumber });
 
-            const { data, error } = await supabase
-                .from('nova_total_por_medico_mes')
-                .select('*')
-                .eq('ano', parseInt(year))
-                .ilike('nome_mes', monthName);
+            // Buscar diretamente da tabela ponto_juju2 e fazer o agrupamento aqui
+            const firstDay = `${year}-${monthNum.padStart(2, '0')}-01`;
+            const lastDay = `${year}-${monthNum.padStart(2, '0')}-31`;
 
-            if (error) {
-                console.error('❌ Erro ao buscar dados financeiros:', error);
+            const { data: pontos, error: pontoError } = await supabase
+                .from('ponto_juju2')
+                .select(`
+                    id,
+                    data_dia,
+                    user_id,
+                    falta,
+                    valor_plantao,
+                    medicos_juju!inner (
+                        medico,
+                        cpf,
+                        banco,
+                        agencia,
+                        variacao,
+                        conta
+                    )
+                `)
+                .gte('data_dia', firstDay)
+                .lte('data_dia', lastDay);
+
+            if (pontoError) {
+                console.error('❌ Erro ao buscar dados:', pontoError);
                 setReportData([]);
                 setIsLoading(false);
                 return;
             }
 
-            console.log('✅ Dados recebidos:', data);
+            console.log('✅ Pontos recebidos:', pontos);
 
-            const mappedData: FinancialReportRow[] = (data || []).map((row: any) => ({
-                userId: row.user_id,
-                userName: row.medico_nome || 'Sem nome',
-                bankingInfo: {
-                    cpf: row.cpf,
-                    bank: row.banco,
-                    agency: row.agencia,
-                    variation: row.variacao,
-                    account: row.conta
-                },
-                totalShifts: row.total_plantao_realizados || 0,
-                totalToPay: row.total_a_pagar || 0
-            }));
+            // Agrupar por médico
+            const grouped = (pontos || []).reduce((acc: any, ponto: any) => {
+                const userId = ponto.user_id;
+                if (!acc[userId]) {
+                    acc[userId] = {
+                        userId: userId,
+                        userName: ponto.medicos_juju?.medico || 'Sem nome',
+                        bankingInfo: {
+                            cpf: ponto.medicos_juju?.cpf,
+                            bank: ponto.medicos_juju?.banco,
+                            agency: ponto.medicos_juju?.agencia,
+                            variation: ponto.medicos_juju?.variacao,
+                            account: ponto.medicos_juju?.conta
+                        },
+                        totalShifts: 0,
+                        totalToPay: 0
+                    };
+                }
+                
+                if (!ponto.falta) {
+                    acc[userId].totalShifts++;
+                    acc[userId].totalToPay += ponto.valor_plantao || 1900;
+                }
+                
+                return acc;
+            }, {});
 
+            const mappedData: FinancialReportRow[] = Object.values(grouped);
             setReportData(mappedData);
         } catch (err) {
             console.error('❌ Erro ao buscar relatório financeiro:', err);
