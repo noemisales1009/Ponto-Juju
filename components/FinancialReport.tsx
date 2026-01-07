@@ -1,22 +1,75 @@
 
 import React, { useState, useEffect } from 'react';
-import { FinancialReportRow, getFinancialReportData } from '../services/mockApi';
+import { supabase } from '../services/supabaseClient';
 import PDFReportContent from './PDFReportContent';
+
+interface FinancialReportRow {
+    userId: string;
+    userName: string;
+    bankingInfo: {
+        cpf: string | null;
+        bank: string | null;
+        agency: string | null;
+        variation: string | null;
+        account: string | null;
+    };
+    totalShifts: number;
+    totalToPay: number;
+}
 
 const FinancialReport: React.FC = () => {
     const [reportData, setReportData] = useState<FinancialReportRow[]>([]);
-    const [selectedMonth, setSelectedMonth] = useState('2025-11');
+    const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
     const [isLoading, setIsLoading] = useState(true);
     const [isPrinting, setIsPrinting] = useState(false);
 
-    const fetchData = (month: string) => {
+    const fetchData = async (monthYear: string) => {
         setIsLoading(true);
-        // Simulate API call delay
-        setTimeout(() => {
-            const data = getFinancialReportData(month);
-            setReportData(data);
+        try {
+            const [year, monthNum] = monthYear.split('-');
+            const monthNumber = parseInt(monthNum);
+            const monthNames = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 
+                              'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+            const monthName = monthNames[monthNumber - 1];
+
+            console.log('🔍 Buscando financeiro:', { ano: year, mes: monthNumber, nome_mes: monthName });
+
+            const { data, error } = await supabase
+                .from('nova_total_por_medico_mes')
+                .select('*')
+                .eq('ano', parseInt(year))
+                .ilike('nome_mes', monthName);
+
+            if (error) {
+                console.error('❌ Erro ao buscar dados financeiros:', error);
+                setReportData([]);
+                setIsLoading(false);
+                return;
+            }
+
+            console.log('✅ Dados recebidos:', data);
+
+            const mappedData: FinancialReportRow[] = (data || []).map((row: any) => ({
+                userId: row.user_id,
+                userName: row.medico_nome || 'Sem nome',
+                bankingInfo: {
+                    cpf: row.cpf,
+                    bank: row.banco,
+                    agency: row.agencia,
+                    variation: row.variacao,
+                    account: row.conta
+                },
+                totalShifts: row.total_plantao_realizados || 0,
+                totalToPay: row.total_a_pagar || 0
+            }));
+
+            setReportData(mappedData);
+        } catch (err) {
+            console.error('❌ Erro ao buscar relatório financeiro:', err);
+            setReportData([]);
+        } finally {
             setIsLoading(false);
-        }, 300);
+        }
     };
 
     useEffect(() => {

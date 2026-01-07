@@ -1,5 +1,18 @@
 import React from 'react';
-import { FinancialReportRow } from '../services/mockApi';
+
+interface FinancialReportRow {
+    userId: string;
+    userName: string;
+    bankingInfo: {
+        cpf: string | null;
+        bank: string | null;
+        agency: string | null;
+        variation: string | null;
+        account: string | null;
+    };
+    totalShifts: number;
+    totalToPay: number;
+}
 
 interface PDFReportContentProps {
     reportData: FinancialReportRow[];

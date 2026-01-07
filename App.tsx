@@ -144,13 +144,13 @@ const App: React.FC = () => {
       case 'profile':
         return <Profile user={currentUser!} onUpdateUser={handleUpdateUser} />;
       case 'financial':
-        return <AdminDashboard currentUser={currentUser!} onBack={() => setCurrentView('dashboard')} />;
+        return <FinancialReport />;
       case 'management':
         return <DataManagement />;
       case 'staffing':
         return <StaffingReport />;
       case 'admin':
-        return <AdminPage currentUser={currentUser!} onBack={() => setCurrentView('dashboard')} />;
+        return <AdminDashboard currentUser={currentUser!} onBack={() => setCurrentView('dashboard')} />;
       default:
         return <Dashboard currentUser={currentUser!} />;
     }
