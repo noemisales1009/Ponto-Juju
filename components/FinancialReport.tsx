@@ -27,75 +27,42 @@ const FinancialReport: React.FC = () => {
         setIsLoading(true);
         try {
             const [year, monthNum] = monthYear.split('-');
+            const monthName = new Date(parseInt(year), parseInt(monthNum) - 1, 1)
+                .toLocaleString('en-US', { month: 'long' });
 
-            console.log('🔍 Buscando financeiro:', { ano: parseInt(year), mes: parseInt(monthNum) });
+            console.log('🔍 Buscando financeiro usando view:', { ano: parseInt(year), mes: monthName });
 
-            const firstDay = `${year}-${monthNum.padStart(2, '0')}-01`;
-            const lastDay = `${year}-${monthNum.padStart(2, '0')}-31`;
+            // Usar a view pronta nova_total_por_medico_mes
+            const { data, error } = await supabase
+                .from('nova_total_por_medico_mes')
+                .select('*')
+                .eq('ano', parseInt(year))
+                .eq('nome_mes', monthName);
 
-            // Buscar pontos do mês
-            const { data: pontos, error: pontoError } = await supabase
-                .from('ponto_juju2')
-                .select('id, data_dia, user_id, falta, valor_plantao')
-                .gte('data_dia', firstDay)
-                .lte('data_dia', lastDay);
-
-            if (pontoError) {
-                console.error('❌ Erro ao buscar pontos:', pontoError);
+            if (error) {
+                console.error('❌ Erro ao buscar dados da view:', error);
                 setReportData([]);
                 setIsLoading(false);
                 return;
             }
 
-            // Buscar médicos
-            const userIds = [...new Set((pontos || []).map(p => p.user_id))];
-            const { data: medicos, error: medicoError } = await supabase
-                .from('medicos_juju')
-                .select('user_id, medico, cpf, banco, agencia, variacao, conta')
-                .in('user_id', userIds);
+            console.log('✅ Dados encontrados:', data?.length || 0);
 
-            if (medicoError) {
-                console.error('❌ Erro ao buscar médicos:', medicoError);
-                setReportData([]);
-                setIsLoading(false);
-                return;
-            }
+            // Mapear dados da view para o formato do componente
+            const mappedData: FinancialReportRow[] = (data || []).map((row: any) => ({
+                userId: row.user_id,
+                userName: row.medico_nome || `Usuário ${row.user_id?.substring(0, 8)}`,
+                bankingInfo: {
+                    cpf: row.cpf || null,
+                    bank: row.banco || null,
+                    agency: row.agencia || null,
+                    variation: row.variacao || null,
+                    account: row.conta || null
+                },
+                totalShifts: row.total_plantao_realizados || 0,
+                totalToPay: parseFloat(row.total_a_pagar) || 0
+            }));
 
-            console.log('✅ Pontos:', pontos?.length, 'Médicos:', medicos?.length);
-
-            // Criar mapa de médicos
-            const medicoMap = new Map((medicos || []).map(m => [m.user_id, m]));
-
-            // Agrupar por médico
-            const grouped = (pontos || []).reduce((acc: any, ponto: any) => {
-                const userId = ponto.user_id;
-                const medico = medicoMap.get(userId);
-                
-                if (!acc[userId]) {
-                    acc[userId] = {
-                        userId: userId,
-                        userName: medico?.medico || 'Sem nome',
-                        bankingInfo: {
-                            cpf: medico?.cpf || null,
-                            bank: medico?.banco || null,
-                            agency: medico?.agencia || null,
-                            variation: medico?.variacao || null,
-                            account: medico?.conta || null
-                        },
-                        totalShifts: 0,
-                        totalToPay: 0
-                    };
-                }
-                
-                if (!ponto.falta) {
-                    acc[userId].totalShifts++;
-                    acc[userId].totalToPay += ponto.valor_plantao || 1900;
-                }
-                
-                return acc;
-            }, {});
-
-            const mappedData: FinancialReportRow[] = Object.values(grouped);
             setReportData(mappedData);
         } catch (err) {
             console.error('❌ Erro ao buscar relatório financeiro:', err);
@@ -107,7 +74,7 @@ const FinancialReport: React.FC = () => {
 
     useEffect(() => {
         fetchData(selectedMonth);
-    }, []);
+    }, [selectedMonth]);
     
     const handleSearch = () => {
         fetchData(selectedMonth);

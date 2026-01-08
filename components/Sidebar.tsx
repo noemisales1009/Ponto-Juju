@@ -160,7 +160,7 @@ const Sidebar: React.FC<SidebarProps> = ({ user, currentView, setCurrentView, is
           <NavLink 
             isActive={currentView === 'my-records'} 
             onClick={() => handleNavClick('my-records')}
-            label="Pontos"
+            label="Meus Pontos"
             icon={<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
           />
           <NavLink 
@@ -169,21 +169,12 @@ const Sidebar: React.FC<SidebarProps> = ({ user, currentView, setCurrentView, is
             label="Ganhos"
             icon={<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33" /></svg>}
           />
-          {isAdmin ? (
-            <NavLink 
-              isActive={currentView === 'staffing'} 
-              onClick={() => handleNavClick('staffing')}
-              label="Escala"
-              icon={<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0h18M9.75 14.25h4.5" /></svg>}
-            />
-          ) : (
-            <NavLink 
-              isActive={currentView === 'reports'} 
-              onClick={() => handleNavClick('reports')}
-              label="Relatórios"
-              icon={<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>}
-            />
-          )}
+          <NavLink 
+            isActive={currentView === 'reports'} 
+            onClick={() => handleNavClick('reports')}
+            label="Relatórios"
+            icon={<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>}
+          />
           <NavLink 
             isActive={currentView === 'profile'} 
             onClick={() => handleNavClick('profile')}

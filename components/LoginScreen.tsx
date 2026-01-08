@@ -45,7 +45,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, error }) => {
                 type="email"
                 autoComplete="email"
                 required
-                className="relative block w-full px-4 py-3 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700/50 placeholder-gray-400 text-pmp-text-primary dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-pmp-primary focus:border-pmp-primary focus:z-10 sm:text-sm disabled:opacity-50 transition-colors"
+                className="relative block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-blue-50 dark:bg-gray-700/50 placeholder-gray-500 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-pmp-primary focus:border-pmp-primary focus:z-10 sm:text-sm disabled:opacity-50 transition-colors"
                 placeholder="Endereço de e-mail"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -62,7 +62,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, error }) => {
                 type="password"
                 autoComplete="current-password"
                 required
-                className="relative block w-full px-4 py-3 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700/50 placeholder-gray-400 text-pmp-text-primary dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-pmp-primary focus:border-pmp-primary focus:z-10 sm:text-sm disabled:opacity-50 transition-colors"
+                className="relative block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700/50 placeholder-gray-500 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-pmp-primary focus:border-pmp-primary focus:z-10 sm:text-sm disabled:opacity-50 transition-colors"
                 placeholder="Senha"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
