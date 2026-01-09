@@ -17,7 +17,8 @@ const ShiftCard: React.FC<{
     selectedDate: string;
     onDeletePonto: (pontoId: number) => Promise<void>;
     onEditPonto: (ponto: any) => void;
-}> = ({ sector, shift, slots, currentUser, records, onUpdate, onRegisterAbsence, selectedDate, onDeletePonto, onEditPonto }) => {
+    isAdmin?: boolean;
+}> = ({ sector, shift, slots, currentUser, records, onUpdate, onRegisterAbsence, selectedDate, onDeletePonto, onEditPonto, isAdmin = false }) => {
     // Filtrar registros por turno - aceita qualquer variação do nome do turno
     const possibleShiftNames = SHIFT_FULL_NAME_MAP[shift] || [shift];
     const shiftRecords = records.filter(r => 
@@ -103,6 +104,7 @@ const ShiftCard: React.FC<{
                         {shiftPresences.map((rec, idx) => {
                             console.log(`Renderizando presença ${idx}:`, rec);
                             const isOwner = String(rec.user_id) === String(currentUser.id);
+                            const canEdit = isOwner || isAdmin;
                             return (
                                 <li key={`pres-${rec.id}`} className="flex items-center justify-between group hover:bg-slate-100 dark:hover:bg-slate-700/30 px-2 py-1 rounded transition-colors">
                                     <div className="flex items-center">
@@ -111,8 +113,8 @@ const ShiftCard: React.FC<{
                                         </svg>
                                         <span className="font-medium">{rec.medico || 'Desconhecido'}</span>
                                     </div>
-                                    {/* ✅ Botões de ação - Apenas para o dono */}
-                                    {isOwner && (
+                                    {/* ✅ Botões de ação - Para o dono ou admin */}
+                                    {canEdit && (
                                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <button
                                                 onClick={() => onEditPonto(rec)}
@@ -142,6 +144,7 @@ const ShiftCard: React.FC<{
                         {shiftAbsences.map((rec, idx) => {
                             console.log(`Renderizando falta ${idx}:`, rec);
                             const isOwner = String(rec.user_id) === String(currentUser.id);
+                            const canEdit = isOwner || isAdmin;
                             return (
                                 <li key={`abs-${rec.id}`} className="flex items-center justify-between group hover:bg-red-50 dark:hover:bg-red-500/10 px-2 py-1 rounded transition-colors text-red-500 dark:text-red-400">
                                     <div className="flex items-center">
@@ -151,8 +154,8 @@ const ShiftCard: React.FC<{
                                         <span className="font-medium">{rec.medico || 'Desconhecido'}</span> 
                                         <span className="ml-1 text-[10px] font-bold uppercase">(Falta)</span>
                                     </div>
-                                    {/* ✅ Botões de ação para faltas - Apenas para o dono */}
-                                    {isOwner && (
+                                    {/* ✅ Botões de ação para faltas - Para o dono ou admin */}
+                                    {canEdit && (
                                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <button
                                                 onClick={() => onEditPonto(rec)}
@@ -213,9 +216,10 @@ interface SectorDashboardProps {
     sector: Sector;
     currentUser: User;
     onBack: () => void;
+    isAdmin?: boolean;
 }
 
-const SectorDashboard: React.FC<SectorDashboardProps> = ({ sector, currentUser, onBack }) => {
+const SectorDashboard: React.FC<SectorDashboardProps> = ({ sector, currentUser, onBack, isAdmin = false }) => {
     // ✅ FUNÇÃO PARA FORMATAR DATA CORRETAMENTE (YYYY-MM-DD)
     const getTodayFormatted = () => {
         const today = new Date();
@@ -576,6 +580,7 @@ const SectorDashboard: React.FC<SectorDashboardProps> = ({ sector, currentUser, 
                                     setEditingPonto(ponto);
                                     setEditModalOpen(true);
                                 }}
+                                isAdmin={isAdmin}
                             />
                         ))}
                     </div>

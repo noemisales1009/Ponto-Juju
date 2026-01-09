@@ -5,9 +5,10 @@ import SectorDashboard from './SectorDashboard';
 
 interface DashboardProps {
   currentUser: User;
+  isAdmin?: boolean;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
+const Dashboard: React.FC<DashboardProps> = ({ currentUser, isAdmin = false }) => {
     const [selectedSector, setSelectedSector] = useState<Sector | null>(null);
 
     if (!selectedSector) {
@@ -18,7 +19,8 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         <SectorDashboard 
             sector={selectedSector} 
             currentUser={currentUser} 
-            onBack={() => setSelectedSector(null)} 
+            onBack={() => setSelectedSector(null)}
+            isAdmin={isAdmin}
         />
     );
 };

@@ -134,7 +134,7 @@ const App: React.FC = () => {
   const MainContent = useMemo(() => {
     switch (currentView) {
       case 'dashboard':
-        return <Dashboard currentUser={currentUser!} />;
+        return <Dashboard currentUser={currentUser!} isAdmin={isAdmin} />;
       case 'reports':
         return <Reports />;
       case 'earnings':
@@ -152,9 +152,9 @@ const App: React.FC = () => {
       case 'admin':
         return <AdminDashboard currentUser={currentUser!} onBack={() => setCurrentView('dashboard')} />;
       default:
-        return <Dashboard currentUser={currentUser!} />;
+        return <Dashboard currentUser={currentUser!} isAdmin={isAdmin} />;
     }
-  }, [currentView, currentUser]);
+  }, [currentView, currentUser, isAdmin]);
 
   if (!currentUser) {
     return (
