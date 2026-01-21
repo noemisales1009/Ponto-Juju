@@ -127,7 +127,7 @@ const Reports: React.FC = () => {
         fetchData();
     }, []);
 
-    const handleSearch = () => {
+    const handleSearch = async () => {
         console.log('🔎 handleSearch chamado!');
         console.log('filterType:', filterType);
         console.log('selectedMonth:', selectedMonth);
@@ -162,10 +162,13 @@ const Reports: React.FC = () => {
         }
 
         console.log('🔍 Filtros finais que serão passados:', filters);
-        fetchData(filters);
+        await fetchData(filters);
     };
 
-    const handlePrint = () => {
+    const handlePrint = async () => {
+        // Primeiro, busca os dados com os filtros atuais
+        await handleSearch();
+        
         // @ts-ignore
         const { jsPDF } = window.jspdf;
         // @ts-ignore
@@ -184,97 +187,101 @@ const Reports: React.FC = () => {
 
         setIsPrinting(true);
 
-        // Forçar largura mínima para captura completa
-        const originalWidth = input.style.width;
-        input.style.width = '1200px';
-        input.style.minWidth = '1200px';
-
-        html2canvas(input, {
-            scale: 3,
-            useCORS: true,
-            logging: false,
-            width: 1200,
-            height: input.scrollHeight,
-            windowWidth: 1200,
-            onclone: (document) => {
-                document.documentElement.classList.remove('dark');
-                const filters = document.querySelector('.report-filters');
-                if (filters) (filters as HTMLElement).style.display = 'none';
-                const printHeader = document.querySelector('.print-header');
-                if (printHeader) {
-                    (printHeader as HTMLElement).style.display = 'block';
-                    (printHeader as HTMLElement).style.marginBottom = '16px';
-                    (printHeader as HTMLElement).style.paddingBottom = '12px';
-                    (printHeader as HTMLElement).style.borderBottom = '2px solid #e5e7eb';
+        // Aguardar renderização antes de capturar
+        setTimeout(() => {
+            html2canvas(input, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                allowTaint: true,
+                windowWidth: 1200,
+                onclone: (document) => {
+                    document.documentElement.classList.remove('dark');
+                    const filters = document.querySelector('.report-filters');
+                    if (filters) (filters as HTMLElement).style.display = 'none';
+                    const printHeader = document.querySelector('.print-header');
+                    if (printHeader) {
+                        (printHeader as HTMLElement).style.display = 'block';
+                        (printHeader as HTMLElement).style.marginBottom = '16px';
+                        (printHeader as HTMLElement).style.paddingBottom = '12px';
+                        (printHeader as HTMLElement).style.borderBottom = '2px solid #e5e7eb';
+                    }
+                    const tableContainer = document.querySelector('.overflow-x-auto');
+                    if (tableContainer) {
+                        (tableContainer as HTMLElement).style.overflow = 'visible';
+                        (tableContainer as HTMLElement).style.width = '100%';
+                    }
+                    const table = document.querySelector('table');
+                    if (table) {
+                        (table as HTMLElement).style.width = '100%';
+                        (table as HTMLElement).style.fontSize = '7px';
+                        (table as HTMLElement).style.tableLayout = 'auto';
+                    }
+                    // Forçar mostrar TODAS as colunas no PDF (incluindo Turno)
+                    const hiddenElements = document.querySelectorAll('.hidden, .sm\\:table-cell');
+                    hiddenElements.forEach(el => {
+                        (el as HTMLElement).style.display = 'table-cell';
+                        (el as HTMLElement).classList.remove('hidden');
+                    });
+                    // Ajustar padding das células e remover truncate
+                    const cells = document.querySelectorAll('th, td');
+                    cells.forEach(cell => {
+                        (cell as HTMLElement).style.padding = '3px 4px';
+                        (cell as HTMLElement).style.whiteSpace = 'nowrap';
+                        (cell as HTMLElement).style.maxWidth = 'none';
+                        (cell as HTMLElement).classList.remove('truncate');
+                        (cell as HTMLElement).style.overflow = 'visible';
+                        (cell as HTMLElement).style.fontSize = '7px';
+                    });
+                    // Ajustar badges de status
+                    const badges = document.querySelectorAll('.inline-flex');
+                    badges.forEach(badge => {
+                        (badge as HTMLElement).style.fontSize = '6px';
+                        (badge as HTMLElement).style.padding = '2px 4px';
+                    });
                 }
-                const tableContainer = document.querySelector('.overflow-x-auto');
-                if (tableContainer) {
-                    (tableContainer as HTMLElement).style.overflow = 'visible';
-                    (tableContainer as HTMLElement).style.width = '100%';
+            }).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const pdf = new jsPDF('l', 'mm', 'a4');
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = pdf.internal.pageSize.getHeight();
+                const margin = 10;
+                
+                const imgWidth = pdfWidth - (margin * 2);
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                
+                // Se a imagem cabe em uma página, apenas adiciona
+                if (imgHeight <= pdfHeight - (margin * 2)) {
+                    pdf.addImage(imgData, 'PNG', margin, margin, imgWidth, imgHeight);
+                } else {
+                    // Múltiplas páginas
+                    const pageHeight = pdfHeight - (margin * 2);
+                    let heightLeft = imgHeight;
+                    let position = 0;
+
+                    // Primeira página
+                    pdf.addImage(imgData, 'PNG', margin, margin, imgWidth, imgHeight);
+                    heightLeft -= pageHeight;
+
+                    // Páginas adicionais
+                    while (heightLeft > 0) {
+                        position = -(imgHeight - heightLeft);
+                        pdf.addPage();
+                        pdf.addImage(imgData, 'PNG', margin, position + margin, imgWidth, imgHeight);
+                        heightLeft -= pageHeight;
+                    }
                 }
-                const table = document.querySelector('table');
-                if (table) {
-                    (table as HTMLElement).style.width = '100%';
-                    (table as HTMLElement).style.fontSize = '8px';
-                    (table as HTMLElement).style.tableLayout = 'auto';
-                }
-                // Forçar mostrar TODAS as colunas no PDF (incluindo Turno)
-                const hiddenElements = document.querySelectorAll('.hidden, .sm\\:table-cell');
-                hiddenElements.forEach(el => {
-                    (el as HTMLElement).style.display = 'table-cell';
-                    (el as HTMLElement).classList.remove('hidden');
-                });
-                // Ajustar padding das células e remover truncate
-                const cells = document.querySelectorAll('th, td');
-                cells.forEach(cell => {
-                    (cell as HTMLElement).style.padding = '4px 6px';
-                    (cell as HTMLElement).style.whiteSpace = 'nowrap';
-                    (cell as HTMLElement).style.maxWidth = 'none';
-                    (cell as HTMLElement).classList.remove('truncate');
-                    (cell as HTMLElement).style.overflow = 'visible';
-                });
-                // Ajustar badges de status
-                const badges = document.querySelectorAll('.inline-flex');
-                badges.forEach(badge => {
-                    (badge as HTMLElement).style.fontSize = '7px';
-                    (badge as HTMLElement).style.padding = '2px 6px';
-                });
-            }
-        }).then(canvas => {
-            const imgData = canvas.toDataURL('image/png');
-            const pdf = new jsPDF('l', 'mm', 'a4'); // Landscape
-            const pdfWidth = pdf.internal.pageSize.getWidth() - 20; // 10mm margem de cada lado
-            const pdfHeight = pdf.internal.pageSize.getHeight() - 20;
-            
-            const canvasAspectRatio = canvas.height / canvas.width;
-            const imgHeight = pdfWidth * canvasAspectRatio;
 
-            let heightLeft = imgHeight;
-            let position = 10; // Margem superior
-
-            pdf.addImage(imgData, 'PNG', 10, position, pdfWidth, imgHeight); // 10mm margem esquerda
-            heightLeft -= pdfHeight;
-
-            while (heightLeft > 0) {
-                position = -(imgHeight - heightLeft) + 10; // Mantém margem superior
-                pdf.addPage();
-                pdf.addImage(imgData, 'PNG', 10, position, pdfWidth, imgHeight);
-                heightLeft -= pdfHeight;
-            }
-
-            const fileName = `relatorio-pontos-${new Date().toISOString().slice(0, 10)}.pdf`;
-            pdf.save(fileName);
-            
-            // Restaurar largura original
-            input.style.width = originalWidth;
-            input.style.minWidth = '';
-            
-            setIsPrinting(false);
-        }).catch(err => {
-            console.error("Erro ao gerar PDF:", err);
-            alert("Ocorreu um erro ao gerar o PDF.");
-            setIsPrinting(false);
-        });
+                const fileName = `relatorio-pontos-${new Date().toISOString().slice(0, 10)}.pdf`;
+                pdf.save(fileName);
+                
+                setIsPrinting(false);
+            }).catch(err => {
+                console.error("Erro ao gerar PDF:", err);
+                alert("Ocorreu um erro ao gerar o PDF: " + err.message);
+                setIsPrinting(false);
+            });
+        }, 500);
     };
 
     const periodText = useMemo(() => {

@@ -31,17 +31,20 @@ const PDFStaffingReportContent: React.FC<PDFStaffingReportContentProps> = ({ mon
                 {`
                     #pdf-staffing-report-content {
                         font-family: 'Inter', sans-serif;
+                        box-sizing: border-box;
                     }
                     #pdf-staffing-report-content h1 {
                         font-size: 24px;
                         font-weight: 800;
                         margin-bottom: 8px;
+                        page-break-after: avoid;
                     }
                     #pdf-staffing-report-content h2 {
                         font-size: 16px;
                         font-weight: 500;
                         margin-bottom: 24px;
                         color: #4B5563;
+                        page-break-after: avoid;
                     }
                     #pdf-staffing-report-content table {
                         width: 100%;
@@ -57,6 +60,9 @@ const PDFStaffingReportContent: React.FC<PDFStaffingReportContentProps> = ({ mon
                         background-color: #F3F4F6;
                         font-weight: 600;
                         color: #374151;
+                    }
+                    #pdf-staffing-report-content tbody tr {
+                        page-break-inside: avoid;
                     }
                     #pdf-staffing-report-content tr:nth-child(even) {
                         background-color: #F9FAFB;

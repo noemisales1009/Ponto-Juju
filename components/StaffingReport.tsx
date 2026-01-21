@@ -127,33 +127,31 @@ const StaffingReport: React.FC = () => {
         html2canvas(input, {
             scale: 2,
             useCORS: true,
+            windowWidth: 1200,
         }).then(canvas => {
             const imgData = canvas.toDataURL('image/png');
             const pdf = new jsPDF('p', 'mm', 'a4');
             const pdfWidth = pdf.internal.pageSize.getWidth();
             const pdfHeight = pdf.internal.pageSize.getHeight();
+            const margin = 10;
             
-            const canvasAspectRatio = canvas.height / canvas.width;
-            const imgHeight = pdfWidth * canvasAspectRatio;
-
+            const imgWidth = pdfWidth - (margin * 2);
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+            const pageHeight = pdfHeight - (margin * 2);
+            
             let heightLeft = imgHeight;
             let position = 0;
-            const margin = 10;
-            const contentWidth = pdfWidth - (margin * 2);
-            const contentHeight = pdfHeight - (margin * 2);
 
-            if (imgHeight < contentHeight) {
-                 pdf.addImage(imgData, 'PNG', margin, margin, contentWidth, imgHeight * (contentWidth / pdfWidth));
-            } else {
-                pdf.addImage(imgData, 'PNG', margin, margin, contentWidth, contentHeight);
-                heightLeft -= contentHeight;
+            // Primeira página
+            pdf.addImage(imgData, 'PNG', margin, margin, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
 
-                while (heightLeft > 0) {
-                    position -= contentHeight;
-                    pdf.addPage();
-                    pdf.addImage(imgData, 'PNG', margin, position + margin, contentWidth, contentHeight);
-                    heightLeft -= contentHeight;
-                }
+            // Adiciona páginas adicionais se necessário
+            while (heightLeft > 0) {
+                position = -(imgHeight - heightLeft);
+                pdf.addPage();
+                pdf.addImage(imgData, 'PNG', margin, position + margin, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
             }
             
             pdf.save(`relatorio-escala-${selectedSector}-${selectedMonth}.pdf`);
