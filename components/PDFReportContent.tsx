@@ -12,6 +12,7 @@ interface FinancialReportRow {
     };
     totalShifts: number;
     totalToPay: number;
+    totalComDesconto: number;
 }
 
 interface PDFReportContentProps {
@@ -78,6 +79,7 @@ const PDFReportContent: React.FC<PDFReportContentProps> = ({ reportData, periodT
                         <th>Conta</th>
                         <th style={{ textAlign: 'center' }}>Plantões</th>
                         <th style={{ textAlign: 'right' }}>Valor a Pagar</th>
+                        <th style={{ textAlign: 'right' }}>Valor com Desconto</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -90,6 +92,7 @@ const PDFReportContent: React.FC<PDFReportContentProps> = ({ reportData, periodT
                             <td>{row.bankingInfo?.account || '-'}</td>
                             <td style={{ textAlign: 'center' }}>{row.totalShifts}</td>
                             <td style={{ textAlign: 'right' }}>{row.totalToPay.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                            <td style={{ textAlign: 'right' }}>{row.totalComDesconto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
                         </tr>
                     ))}
                 </tbody>

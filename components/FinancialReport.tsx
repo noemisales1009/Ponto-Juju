@@ -15,6 +15,7 @@ interface FinancialReportRow {
     };
     totalShifts: number;
     totalToPay: number;
+    totalComDesconto: number;
 }
 
 const FinancialReport: React.FC = () => {
@@ -60,7 +61,8 @@ const FinancialReport: React.FC = () => {
                     account: row.conta || null
                 },
                 totalShifts: row.total_plantao_realizados || 0,
-                totalToPay: parseFloat(row.total_a_pagar) || 0
+                totalToPay: parseFloat(row.total_a_pagar) || 0,
+                totalComDesconto: parseFloat(row.total_com_desconto) || 0
             }));
 
             setReportData(mappedData);
