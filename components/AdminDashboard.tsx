@@ -31,6 +31,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
         fetchRelatorio();
     }, [selectedMonth, selectedYear]);
 
+    // Mapear meses PT->EN (PostgreSQL usa TO_CHAR que retorna em inglês)
+    const mesesMap: Record<string, string> = {
+        'Janeiro': 'January',
+        'Fevereiro': 'February',
+        'Março': 'March',
+        'Abril': 'April',
+        'Maio': 'May',
+        'Junho': 'June',
+        'Julho': 'July',
+        'Agosto': 'August',
+        'Setembro': 'September',
+        'Outubro': 'October',
+        'Novembro': 'November',
+        'Dezembro': 'December'
+    };
+
     const fetchRelatorio = async () => {
         setLoading(true);
         try {
@@ -38,12 +54,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
                 .from('nova_total_por_medico_mes')
                 .select('*');
 
+            // Filtrar por ano
             if (selectedYear) {
                 query = query.eq('ano', selectedYear);
             }
 
+            // Filtrar por mês (converter PT->EN e usar ilike com trim)
             if (selectedMonth) {
-                query = query.eq('nome_mes', selectedMonth);
+                const mesIngles = mesesMap[selectedMonth];
+                if (mesIngles) {
+                    query = query.ilike('nome_mes', `${mesIngles}%`);
+                }
             }
 
             const { data, error } = await query.order('medico_nome', { ascending: true });
@@ -70,30 +91,29 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
         // Cabeçalhos
         const headers = [
             'Médico',
-            'Email',
-            'CPF',
-            'Banco',
             'Agência',
             'Conta',
             'Mês/Ano',
             'Plantões',
             'Faltas',
-            'Total Valor'
+            'Total Valor',
+            'Valor com Desconto'
         ];
 
         // Dados
-        const rows = relatorio.map(m => [
-            m.medico_nome,
-            '', // Sem email na view, pode adicionar depois
-            m.cpf || '',
-            m.banco || '',
-            m.agencia || '',
-            m.conta || '',
-            `${m.nome_mes}/${m.ano}`,
-            m.total_plantao_realizados,
-            m.total_faltas,
-            `R$ ${m.total_valor_plantao?.toFixed(2) || '0,00'}`
-        ]);
+        const rows = relatorio.map(m => {
+            const valorComDesconto = m.total_valor_plantao - (m.total_plantao_realizados * 20);
+            return [
+                m.medico_nome,
+                m.agencia || '',
+                m.conta || '',
+                `${m.nome_mes}/${m.ano}`,
+                m.total_plantao_realizados,
+                m.total_faltas,
+                `R$ ${m.total_valor_plantao?.toFixed(2) || '0,00'}`,
+                `R$ ${valorComDesconto.toFixed(2)}`
+            ];
+        });
 
         // Montar CSV
         const csv = [
@@ -113,6 +133,114 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
         document.body.removeChild(link);
     };
 
+    const exportarPDF = () => {
+        if (relatorio.length === 0) {
+            alert('Nenhum dado para exportar');
+            return;
+        }
+
+        const periodText = selectedMonth 
+            ? `${selectedMonth}/${selectedYear}`
+            : `Ano ${selectedYear}`;
+
+        // Gerar HTML do PDF diretamente
+        const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Relatório Administrativo</title>
+            <style>
+                body {
+                    font-family: 'Arial', sans-serif;
+                    padding: 40px;
+                    color: #000;
+                }
+                h1 {
+                    font-size: 24px;
+                    font-weight: 800;
+                    margin-bottom: 8px;
+                }
+                h2 {
+                    font-size: 16px;
+                    font-weight: 500;
+                    margin-bottom: 24px;
+                    color: #4B5563;
+                }
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-size: 11px;
+                    margin-top: 20px;
+                }
+                th, td {
+                    border: 1px solid #E5E7EB;
+                    padding: 10px;
+                    text-align: left;
+                }
+                th {
+                    background-color: #F9FAFB;
+                    font-weight: 600;
+                    color: #374151;
+                }
+                tr:nth-child(even) {
+                    background-color: #F9FAFB;
+                }
+                .text-center { text-align: center; }
+                .text-right { text-align: right; }
+            </style>
+        </head>
+        <body>
+            <h1>Relatório Administrativo - Plantões e Faturamento</h1>
+            <h2>Período: ${periodText}</h2>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Médico</th>
+                        <th>Banco</th>
+                        <th>Agência</th>
+                        <th>Conta</th>
+                        <th class="text-center">Plantões</th>
+                        <th class="text-center">Faltas</th>
+                        <th class="text-right">Valor a Pagar</th>
+                        <th class="text-right">Valor com Desconto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${relatorio.map(medico => {
+                        const valorComDesconto = medico.total_valor_plantao - (medico.total_plantao_realizados * 20);
+                        return `
+                        <tr>
+                            <td>${medico.medico_nome}</td>
+                            <td>${medico.banco || '-'}</td>
+                            <td>${medico.agencia || '-'}</td>
+                            <td>${medico.conta || '-'}</td>
+                            <td class="text-center">${medico.total_plantao_realizados}</td>
+                            <td class="text-center">${medico.total_faltas}</td>
+                            <td class="text-right">R$ ${medico.total_valor_plantao.toFixed(2)}</td>
+                            <td class="text-right">R$ ${valorComDesconto.toFixed(2)}</td>
+                        </tr>
+                        `;
+                    }).join('')}
+                </tbody>
+            </table>
+        </body>
+        </html>
+        `;
+
+        // Abrir nova janela e imprimir
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+            printWindow.document.write(htmlContent);
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => {
+                printWindow.print();
+            }, 250);
+        }
+    };
+
     const totalGeral = relatorio.reduce((sum, m) => sum + (m.total_valor_plantao || 0), 0);
     const totalPlantoes = relatorio.reduce((sum, m) => sum + (m.total_plantao_realizados || 0), 0);
     const totalFaltas = relatorio.reduce((sum, m) => sum + (m.total_faltas || 0), 0);
@@ -124,7 +252,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
                 <div className="flex items-center justify-between mb-8">
                     <div>
                         <h1 className="text-3xl font-bold text-pmp-text-primary dark:text-white mb-2">
-                            👨‍💼 Painel Administrativo
+                            👩‍💼 Painel Administrativo
                         </h1>
                         <p className="text-pmp-text-secondary dark:text-gray-400">
                             Relatório de Plantões e Faturamento
@@ -183,11 +311,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
 
                         <div className="flex items-end">
                             <button
-                                onClick={exportarCSV}
+                                onClick={exportarPDF}
                                 disabled={loading || relatorio.length === 0}
-                                className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg transition-colors font-medium"
+                                className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg transition-colors font-medium"
                             >
-                                📥 Exportar CSV
+                                📄 Exportar PDF
                             </button>
                         </div>
                     </div>
@@ -236,12 +364,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
                                         <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">
                                             Médico
                                         </th>
-                                        <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">
-                                            CPF
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">
-                                            Banco
-                                        </th>
                                         <th className="px-6 py-3 text-center text-sm font-semibold text-gray-900 dark:text-white">
                                             Plantões
                                         </th>
@@ -251,22 +373,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
                                         <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900 dark:text-white">
                                             Total
                                         </th>
+                                        <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900 dark:text-white">
+                                            Com Desconto
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {relatorio.map((medico, idx) => (
+                                    {relatorio.map((medico, idx) => {
+                                        const valorComDesconto = medico.total_valor_plantao - (medico.total_plantao_realizados * 20);
+                                        return (
                                         <tr
                                             key={idx}
                                             className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors"
                                         >
                                             <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">
                                                 {medico.medico_nome}
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
-                                                {medico.cpf || '-'}
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
-                                                {medico.banco || '-'}
                                             </td>
                                             <td className="px-6 py-4 text-sm text-center text-gray-900 dark:text-white">
                                                 {medico.total_plantao_realizados}
@@ -276,11 +397,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
                                                     {medico.total_faltas}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 text-sm font-semibold text-right text-green-600 dark:text-green-400">
+                                            <td className="px-6 py-4 text-sm font-semibold text-right text-gray-600 dark:text-gray-400">
                                                 R$ {medico.total_valor_plantao?.toFixed(2) || '0,00'}
                                             </td>
+                                            <td className="px-6 py-4 text-sm font-bold text-right text-green-600 dark:text-green-400">
+                                                R$ {valorComDesconto.toFixed(2)}
+                                            </td>
                                         </tr>
-                                    ))}
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
