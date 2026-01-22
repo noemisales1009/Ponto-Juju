@@ -1,14 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../../services/supabaseClient';
 import { User } from '../../types';
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Faltam variáveis de ambiente do Supabase. Verifique .env.local');
-}
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export const signIn = async (email: string, password: string): Promise<User> => {
   const { data, error } = await supabase.auth.signInWithPassword({
