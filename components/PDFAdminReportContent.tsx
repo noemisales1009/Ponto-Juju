@@ -11,7 +11,8 @@ interface MedicoRelatorio {
     nome_mes: string;
     total_plantao_realizados: number;
     total_faltas: number;
-    total_valor_plantao: number;
+    valor_soma_total: number;
+    total_a_pagar: number;
 }
 
 interface PDFAdminReportContentProps {
@@ -83,7 +84,6 @@ const PDFAdminReportContent: React.FC<PDFAdminReportContentProps> = ({ reportDat
                 </thead>
                 <tbody>
                     {reportData.map((medico, idx) => {
-                        const valorComDesconto = medico.total_valor_plantao - (medico.total_plantao_realizados * 20);
                         return (
                             <tr key={idx}>
                                 <td>{medico.medico_nome}</td>
@@ -93,10 +93,10 @@ const PDFAdminReportContent: React.FC<PDFAdminReportContentProps> = ({ reportDat
                                 <td style={{ textAlign: 'center' }}>{medico.total_plantao_realizados}</td>
                                 <td style={{ textAlign: 'center' }}>{medico.total_faltas}</td>
                                 <td style={{ textAlign: 'right' }}>
-                                    {medico.total_valor_plantao.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                    {medico.valor_soma_total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                 </td>
                                 <td style={{ textAlign: 'right' }}>
-                                    {valorComDesconto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                    {(medico.total_a_pagar || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                 </td>
                             </tr>
                         );

@@ -13,7 +13,8 @@ interface MedicoRelatorio {
     nome_mes: string;
     total_plantao_realizados: number;
     total_faltas: number;
-    total_valor_plantao: number;
+    valor_soma_total: number;
+    total_a_pagar: number;
 }
 
 interface AdminDashboardProps {
@@ -102,7 +103,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
 
         // Dados
         const rows = relatorio.map(m => {
-            const valorComDesconto = m.total_valor_plantao - (m.total_plantao_realizados * 20);
             return [
                 m.medico_nome,
                 m.agencia || '',
@@ -110,8 +110,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
                 `${m.nome_mes}/${m.ano}`,
                 m.total_plantao_realizados,
                 m.total_faltas,
-                `R$ ${m.total_valor_plantao?.toFixed(2) || '0,00'}`,
-                `R$ ${valorComDesconto.toFixed(2)}`
+                `R$ ${m.valor_soma_total?.toFixed(2) || '0,00'}`,
+                `R$ ${m.total_a_pagar?.toFixed(2) || '0,00'}`
             ];
         });
 
@@ -209,7 +209,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
                 </thead>
                 <tbody>
                     ${relatorio.map(medico => {
-                        const valorComDesconto = medico.total_valor_plantao - (medico.total_plantao_realizados * 20);
                         return `
                         <tr>
                             <td>${medico.medico_nome}</td>
@@ -218,8 +217,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
                             <td>${medico.conta || '-'}</td>
                             <td class="text-center">${medico.total_plantao_realizados}</td>
                             <td class="text-center">${medico.total_faltas}</td>
-                            <td class="text-right">R$ ${medico.total_valor_plantao.toFixed(2)}</td>
-                            <td class="text-right">R$ ${valorComDesconto.toFixed(2)}</td>
+                            <td class="text-right">R$ ${medico.valor_soma_total.toFixed(2)}</td>
+                            <td class="text-right">R$ ${medico.total_a_pagar?.toFixed(2) || '0.00'}</td>
                         </tr>
                         `;
                     }).join('')}
@@ -241,7 +240,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
         }
     };
 
-    const totalGeral = relatorio.reduce((sum, m) => sum + (m.total_valor_plantao || 0), 0);
+    const totalGeral = relatorio.reduce((sum, m) => sum + (m.valor_soma_total || 0), 0);
     const totalPlantoes = relatorio.reduce((sum, m) => sum + (m.total_plantao_realizados || 0), 0);
     const totalFaltas = relatorio.reduce((sum, m) => sum + (m.total_faltas || 0), 0);
 
@@ -380,7 +379,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
                                 </thead>
                                 <tbody>
                                     {relatorio.map((medico, idx) => {
-                                        const valorComDesconto = medico.total_valor_plantao - (medico.total_plantao_realizados * 20);
                                         return (
                                         <tr
                                             key={idx}
@@ -398,10 +396,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-sm font-semibold text-right text-gray-600 dark:text-gray-400">
-                                                R$ {medico.total_valor_plantao?.toFixed(2) || '0,00'}
+                                                R$ {medico.valor_soma_total?.toFixed(2) || '0,00'}
                                             </td>
                                             <td className="px-6 py-4 text-sm font-bold text-right text-green-600 dark:text-green-400">
-                                                R$ {valorComDesconto.toFixed(2)}
+                                                R$ {medico.total_a_pagar?.toFixed(2) || '0,00'}
                                             </td>
                                         </tr>
                                         );

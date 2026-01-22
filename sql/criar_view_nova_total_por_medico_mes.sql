@@ -21,11 +21,12 @@ SELECT
   m.variacao,
   m.conta,
   EXTRACT(YEAR FROM p.data_dia) AS ano,
-  TO_CHAR(p.data_dia, 'Month') AS nome_mes,
-  COALESCE(SUM(CASE WHEN p.falta IS NULL THEN COALESCE(p.valor_plantao, 500) ELSE 0 END), 0) AS total_valor_plantao,
-  COUNT(CASE WHEN p.falta IS NULL THEN p.id END) AS total_plantao_realizados,
-  COUNT(CASE WHEN p.falta IS NOT NULL THEN p.id END) AS total_faltas,
-  COALESCE(SUM(CASE WHEN p.falta IS NULL THEN COALESCE(p.valor_plantao, 500) ELSE 0 END), 0) AS total_a_pagar
+  TO_CHAR(p.data_dia::timestamp with time zone, 'TMMonth') AS nome_mes,
+  COALESCE(SUM(CASE WHEN p.falta IS NULL THEN COALESCE(p.valor_plantao, 500::numeric) ELSE 0::numeric END), 0::numeric) AS total_valor_plantao,
+  COUNT(CASE WHEN p.falta IS NULL THEN p.id ELSE null::bigint END) AS total_plantao_realizados,
+  COUNT(CASE WHEN p.falta IS NOT NULL THEN p.id ELSE null::bigint END) AS total_faltas,
+  COALESCE(SUM(CASE WHEN p.falta IS NULL THEN COALESCE(p.valor_plantao, 500::numeric) ELSE 0::numeric END), 0::numeric) AS total_a_pagar,
+  COALESCE(SUM(CASE WHEN p.falta IS NULL THEN COALESCE(p.valor_plantao, 500::numeric) ELSE 0::numeric END), 0::numeric) - 20::numeric AS total_com_desconto
 FROM
   public.ponto_juju2 p
   LEFT JOIN public.medicos_juju m ON p.user_id = m.user_id
@@ -38,11 +39,11 @@ GROUP BY
   m.variacao,
   m.conta,
   EXTRACT(YEAR FROM p.data_dia),
-  TO_CHAR(p.data_dia, 'Month')
+  TO_CHAR(p.data_dia::timestamp with time zone, 'TMMonth')
 ORDER BY
-  ano DESC,
-  nome_mes DESC,
-  medico_nome ASC;
+  EXTRACT(YEAR FROM p.data_dia) DESC,
+  TO_CHAR(p.data_dia::timestamp with time zone, 'TMMonth') DESC,
+  m.medico;
 
 -- ============================================
 -- CRIAR ÍNDICES PARA PERFORMANCE
