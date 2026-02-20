@@ -91,9 +91,20 @@ export const registrarPonto = async (
     tipo: typeof dataDia
   });
 
+  // ✅ Obter usuário autenticado atual (quem está registrando)
+  const { data: { user: currentUser } } = await supabase.auth.getUser();
+  
+  if (!currentUser) {
+    return {
+      sucesso: false,
+      erro: 'Usuário não autenticado',
+    };
+  }
+
   // Inserir o ponto (o banco fará a validação final)
   const insertData = {
     user_id: userId,
+    created_by: currentUser.id,  // ✅ QUEM está registrando o ponto
     data: dataTimestamp,  // ✅ IMPORTANTE: Enviar também o campo `data` para o trigger
     data_dia: dataDia,
     turno,

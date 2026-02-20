@@ -103,7 +103,7 @@ const ShiftCard: React.FC<{
                     <ul className="text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary space-y-1.5">
                         {shiftPresences.map((rec, idx) => {
                             console.log(`Renderizando presença ${idx}:`, rec);
-                            const isOwner = String(rec.user_id) === String(currentUser.id);
+                            const isOwner = String(rec.created_by) === String(currentUser.id);
                             const canEdit = isOwner || isAdmin;
                             return (
                                 <li key={`pres-${rec.id}`} className="flex items-center justify-between group hover:bg-slate-100 dark:hover:bg-slate-700/30 px-2 py-1 rounded transition-colors">
@@ -143,7 +143,7 @@ const ShiftCard: React.FC<{
                         })}
                         {shiftAbsences.map((rec, idx) => {
                             console.log(`Renderizando falta ${idx}:`, rec);
-                            const isOwner = String(rec.user_id) === String(currentUser.id);
+                            const isOwner = String(rec.created_by) === String(currentUser.id);
                             const canEdit = isOwner || isAdmin;
                             return (
                                 <li key={`abs-${rec.id}`} className="flex items-center justify-between group hover:bg-red-50 dark:hover:bg-red-500/10 px-2 py-1 rounded transition-colors text-red-500 dark:text-red-400">
@@ -470,8 +470,17 @@ const SectorDashboard: React.FC<SectorDashboardProps> = ({ sector, currentUser, 
     const handleAbsenceSubmit = async (userId: string | number) => {
         if (modalData) {
             try {
+                // ✅ Obter usuário autenticado atual (quem está registrando)
+                const { data: { user: authenticatedUser } } = await supabase.auth.getUser();
+                
+                if (!authenticatedUser) {
+                    alert('❌ Erro: Usuário não autenticado');
+                    return;
+                }
+
                 console.log('📝 Registrando falta:', {
                     userId,
+                    registradoPor: authenticatedUser.id,
                     sector,
                     shift: modalData.shift,
                     selectedDate,
@@ -482,6 +491,7 @@ const SectorDashboard: React.FC<SectorDashboardProps> = ({ sector, currentUser, 
                     .from('ponto_juju2')
                     .insert([{
                         user_id: userId,
+                        created_by: authenticatedUser.id,  // ✅ QUEM está registrando
                         setor_id: SECTOR_ID_MAP[sector], // ✅ USAR ID CORRETO
                         turno: modalData.shift, // ✅ TURNO será normalizado pelo trigger
                         data: new Date(selectedDate).toISOString(), // ✅ ADICIONAR data timestamp
