@@ -4,7 +4,7 @@ interface PontoRecord {
     id: number;
     data_dia: string;
     turno: string;
-    falta: boolean;
+    falta: string | boolean | null;
     medico?: string;
 }
 
@@ -12,7 +12,7 @@ interface EditPontoModalProps {
     isOpen: boolean;
     ponto: PontoRecord | null;
     onClose: () => void;
-    onSave: (pontoId: number, updates: { data_dia?: string; turno?: string; falta?: boolean }) => Promise<void>;
+    onSave: (pontoId: number, updates: { data_dia?: string; turno?: string; falta?: string | null }) => Promise<void>;
 }
 
 const EditPontoModal: React.FC<EditPontoModalProps> = ({ isOpen, ponto, onClose, onSave }) => {
@@ -34,7 +34,7 @@ const EditPontoModal: React.FC<EditPontoModalProps> = ({ isOpen, ponto, onClose,
             setFormData({
                 data_dia: ponto.data_dia,
                 turno: ponto.turno,
-                falta: ponto.falta || false
+                falta: ponto.falta === 'Sim' || ponto.falta === true
             });
             setError('');
         }
@@ -57,7 +57,11 @@ const EditPontoModal: React.FC<EditPontoModalProps> = ({ isOpen, ponto, onClose,
 
         setIsSaving(true);
         try {
-            await onSave(ponto.id, formData);
+            await onSave(ponto.id, {
+                data_dia: formData.data_dia,
+                turno: formData.turno,
+                falta: formData.falta ? 'Sim' : null
+            });
             setIsSaving(false);
             onClose();
         } catch (err: any) {

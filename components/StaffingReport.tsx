@@ -3,7 +3,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Sector, Shift, ClockRecord, AbsenceRecord } from '../types';
 import { SECTOR_CONFIG, getSectorSlots, SECTOR_ID_MAP, SHIFT_FULL_NAME_MAP } from '../constants';
 import { supabase } from '../services/supabaseClient';
-import PDFStaffingReportContent from './PDFStaffingReportContent';
 
 interface DailyStatus {
     date: string;
@@ -108,59 +107,183 @@ const StaffingReport: React.FC = () => {
     const handlePrint = () => {
         // @ts-ignore
         const { jsPDF } = window.jspdf;
-        // @ts-ignore
-        const html2canvas = window.html2canvas;
 
-        if (!jsPDF || !html2canvas) {
-            alert('Erro ao carregar bibliotecas de PDF. Tente novamente.');
+        if (!jsPDF) {
+            alert('Erro ao carregar a biblioteca de PDF. Tente novamente.');
             return;
         }
 
-        const input = document.getElementById('pdf-staffing-report-content');
-        if (!input) {
-            alert('Elemento do relatório não encontrado para gerar o PDF.');
-            return;
-        }
-        
         setIsPrinting(true);
 
-        html2canvas(input, {
-            scale: 2,
-            useCORS: true,
-            windowWidth: 1200,
-        }).then(canvas => {
-            const imgData = canvas.toDataURL('image/png');
+        try {
             const pdf = new jsPDF('p', 'mm', 'a4');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = pdf.internal.pageSize.getHeight();
-            const margin = 10;
-            
-            const imgWidth = pdfWidth - (margin * 2);
-            const imgHeight = (canvas.height * imgWidth) / canvas.width;
-            const pageHeight = pdfHeight - (margin * 2);
-            
-            let heightLeft = imgHeight;
-            let position = 0;
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
 
-            // Primeira página
-            pdf.addImage(imgData, 'PNG', margin, margin, imgWidth, imgHeight);
-            heightLeft -= pageHeight;
+            // Descobrir quais turnos o setor tem
+            const shiftColumns = monthlyData.length > 0
+                ? monthlyData[0].shifts.map(s => s.shiftName)
+                : [];
 
-            // Adiciona páginas adicionais se necessário
-            while (heightLeft > 0) {
-                position = -(imgHeight - heightLeft);
+            // Cabeçalho da tabela
+            const head = [['Data', 'Dia da Semana', ...shiftColumns]];
+
+            // Corpo da tabela
+            const body = monthlyData.map(day => {
+                const row: any[] = [day.date, day.dayOfWeek];
+                shiftColumns.forEach(shiftName => {
+                    const s = day.shifts.find(x => x.shiftName === shiftName);
+                    if (!s) {
+                        row.push('-');
+                    } else if (s.status === 'Completo') {
+                        row.push({ content: 'Completo', styles: { textColor: [5, 150, 105] } });
+                    } else {
+                        row.push({ content: `Faltando: ${s.missing}`, styles: { textColor: [217, 119, 6] } });
+                    }
+                });
+                return row;
+            });
+
+            // Resumo: totais por turno
+            const totals: Record<string, { completos: number; faltas: number }> = {};
+            shiftColumns.forEach(shift => {
+                totals[shift] = { completos: 0, faltas: 0 };
+            });
+            monthlyData.forEach(day => {
+                day.shifts.forEach(s => {
+                    if (!totals[s.shiftName]) return;
+                    if (s.status === 'Completo') totals[s.shiftName].completos += 1;
+                    else totals[s.shiftName].faltas += s.missing;
+                });
+            });
+
+            // @ts-ignore - plugin autotable adiciona método na instância
+            pdf.autoTable({
+                head,
+                body,
+                startY: 28,
+                margin: { top: 22, bottom: 16, left: 10, right: 10 },
+                styles: { fontSize: 9, cellPadding: 2 },
+                headStyles: { fillColor: [243, 244, 246], textColor: [55, 65, 81], fontStyle: 'bold' },
+                alternateRowStyles: { fillColor: [249, 250, 251] },
+                didDrawPage: () => {
+                    // Cabeçalho em todas as páginas
+                    pdf.setFontSize(16);
+                    pdf.setFont('helvetica', 'bold');
+                    pdf.setTextColor(30, 41, 59);
+                    pdf.text('Relatório de Escala', 10, 12);
+
+                    pdf.setFontSize(10);
+                    pdf.setFont('helvetica', 'normal');
+                    pdf.setTextColor(75, 85, 99);
+                    pdf.text(`Setor: ${selectedSector}  |  Período: ${periodText}`, 10, 18);
+
+                    // Rodapé com número da página
+                    // @ts-ignore
+                    const pageNumber = pdf.internal.getNumberOfPages();
+                    pdf.setFontSize(8);
+                    pdf.setTextColor(107, 114, 128);
+                    pdf.text(
+                        `Página ${pageNumber}`,
+                        pageWidth - 10,
+                        pageHeight - 8,
+                        { align: 'right' }
+                    );
+                    pdf.text(
+                        `Gerado em ${new Date().toLocaleDateString('pt-BR')}`,
+                        10,
+                        pageHeight - 8
+                    );
+                },
+            });
+
+            // Resumo ao final
+            // @ts-ignore
+            let finalY = pdf.lastAutoTable.finalY || 28;
+            if (finalY + 40 > pageHeight - 16) {
                 pdf.addPage();
-                pdf.addImage(imgData, 'PNG', margin, position + margin, imgWidth, imgHeight);
-                heightLeft -= pageHeight;
+                finalY = 28;
             }
-            
-            pdf.save(`relatorio-escala-${selectedSector}-${selectedMonth}.pdf`);
+
+            pdf.setFontSize(12);
+            pdf.setFont('helvetica', 'bold');
+            pdf.setTextColor(30, 41, 59);
+            pdf.text('Resumo do Período', 10, finalY + 10);
+
+            const summaryBody = shiftColumns.map(shift => [
+                shift,
+                String(totals[shift].completos),
+                String(totals[shift].faltas),
+            ]);
+
+            // @ts-ignore
+            pdf.autoTable({
+                head: [['Turno', 'Dias Completos', 'Total de Faltas']],
+                body: summaryBody,
+                startY: finalY + 14,
+                margin: { left: 10, right: 10 },
+                styles: { fontSize: 10, cellPadding: 3 },
+                headStyles: { fillColor: [99, 102, 241], textColor: [255, 255, 255], fontStyle: 'bold' },
+                theme: 'grid',
+            });
+
+            // Detalhamento: dias com faltas
+            const daysWithAbsences = monthlyData.filter(day =>
+                day.shifts.some(s => s.status === 'Faltando')
+            );
+
+            if (daysWithAbsences.length > 0) {
+                const formatMissingShifts = (shifts: { shiftName: string; missing: number }[]) => {
+                    if (shifts.length === 1) {
+                        const s = shifts[0];
+                        const verb = s.missing === 1 ? 'Falta' : 'Faltam';
+                        const profWord = s.missing === 1 ? 'profissional' : 'profissionais';
+                        return `${verb} ${s.missing} ${profWord} no turno da ${s.shiftName}.`;
+                    }
+                    const names = shifts.map(s => s.shiftName);
+                    const shiftsText = names.length === 2
+                        ? `da ${names[0]} e da ${names[1]}`
+                        : names.slice(0, -1).map(n => `da ${n}`).join(', ') + ` e da ${names[names.length - 1]}`;
+                    const totalMissing = shifts.reduce((sum, s) => sum + s.missing, 0);
+                    return `Faltam ${totalMissing} profissionais nos turnos ${shiftsText}.`;
+                };
+
+                const absenceDetails = daysWithAbsences.map(day => {
+                    const missingShifts = day.shifts.filter(s => s.status === 'Faltando');
+                    const shortDate = day.date.slice(0, 5);
+                    return `${shortDate} (${day.dayOfWeek}): ${formatMissingShifts(missingShifts)}`;
+                });
+
+                // @ts-ignore
+                let afterSummaryY = pdf.lastAutoTable.finalY + 10;
+                if (afterSummaryY + 20 > pageHeight - 16) {
+                    pdf.addPage();
+                    afterSummaryY = 28;
+                }
+
+                pdf.setFontSize(12);
+                pdf.setFont('helvetica', 'bold');
+                pdf.setTextColor(30, 41, 59);
+                pdf.text(`Dias com Faltas (${daysWithAbsences.length})`, 10, afterSummaryY);
+
+                // @ts-ignore
+                pdf.autoTable({
+                    body: absenceDetails.map(text => [text]),
+                    startY: afterSummaryY + 4,
+                    margin: { left: 10, right: 10 },
+                    styles: { fontSize: 9, cellPadding: 2, textColor: [55, 65, 81] },
+                    theme: 'plain',
+                });
+            }
+
+            const safeFileName = selectedSector.replace(/\s+/g, '_');
+            pdf.save(`relatorio-escala-${safeFileName}-${selectedMonth}.pdf`);
             setIsPrinting(false);
-        }).catch(err => {
-            console.error("Erro ao gerar PDF:", err);
-            alert("Ocorreu um erro ao gerar o PDF.");
+        } catch (err) {
+            console.error('Erro ao gerar PDF:', err);
+            alert('Ocorreu um erro ao gerar o PDF.');
             setIsPrinting(false);
-        });
+        }
     };
 
     const periodText = useMemo(() => {
@@ -177,14 +300,6 @@ const StaffingReport: React.FC = () => {
 
     return (
         <>
-            {/* Hidden component for PDF generation */}
-            <div style={{ position: 'absolute', left: '-9999px', top: 0, width: '210mm' }}>
-                <PDFStaffingReportContent 
-                    monthlyData={monthlyData}
-                    periodText={periodText}
-                    sectorText={selectedSector}
-                />
-            </div>
             <div className="bg-pmp-surface dark:bg-dark-pmp-surface p-6 sm:p-8 rounded-2xl shadow-xl w-full">
                 <h1 className="text-3xl font-extrabold text-pmp-text-primary dark:text-dark-pmp-text-primary tracking-tight mb-6">Relatório de Escala</h1>
 

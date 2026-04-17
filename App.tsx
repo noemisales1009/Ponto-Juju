@@ -84,6 +84,7 @@ const App: React.FC = () => {
         console.log('Tentando login via Supabase...');
         const user = await signIn(email, password_cleartext);
         setCurrentUser(user);
+        await checkIfAdmin(user.id);
         return true;
     } catch (supabaseError: any) {
         console.warn('Login Supabase falhou:', supabaseError.message);

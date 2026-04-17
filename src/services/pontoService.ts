@@ -6,7 +6,7 @@ import { User } from '../../types';
  * Permite múltiplos turnos no mesmo dia, mas não permite duplicar o mesmo turno
  */
 export const verificarPontoDuplicado = async (
-  userId: string,
+  userId: string | number,
   data: Date,
   turno: string
 ): Promise<{ pode_bater: boolean; mensagem?: string }> => {
@@ -60,7 +60,7 @@ export const verificarPontoDuplicado = async (
  * 🕐 Registrar ponto com validação automática
  */
 export const registrarPonto = async (
-  userId: string,
+  userId: string | number,
   data: Date,
   turno: string,
   setorId: number,

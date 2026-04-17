@@ -198,8 +198,9 @@ const ShiftCard: React.FC<{
                 </button>
                 <button
                     onClick={onRegisterAbsence}
-                    className="p-2 border border-red-300 dark:border-red-500/50 text-sm font-medium rounded-md text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
-                    title="Registrar Falta"
+                    disabled={isFull}
+                    className="p-2 border border-red-300 dark:border-red-500/50 text-sm font-medium rounded-md text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-red-50 dark:disabled:hover:bg-red-500/10"
+                    title={isFull ? 'Turno completo' : 'Registrar Falta'}
                     aria-label="Registrar Falta"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -396,7 +397,7 @@ const SectorDashboard: React.FC<SectorDashboardProps> = ({ sector, currentUser, 
         setModalData(null);
     };
 
-    const handleEditPonto = async (pontoId: number, updates: { data_dia?: string; turno?: string; falta?: boolean }) => {
+    const handleEditPonto = async (pontoId: number, updates: { data_dia?: string; turno?: string; falta?: string | null }) => {
         try {
             console.log('✏️ Editando ponto ID:', pontoId, 'com updates:', updates);
             
