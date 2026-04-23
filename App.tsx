@@ -13,6 +13,7 @@ import DataManagement from './components/DataManagement';
 import StaffingReport from './components/StaffingReport';
 import AdminPage from './components/AdminPage';
 import AdminDashboard from './components/AdminDashboard';
+import AbsenceDistribution from './components/AbsenceDistribution';
 import { User, View } from './types';
 import { mockLogin, updateUser as apiUpdateUser } from './services/mockApi';
 import { fetchMedicos, signIn, signOut, getCurrentUser, updateUserProfile } from './services/supabaseService';
@@ -152,6 +153,8 @@ const App: React.FC = () => {
         return <StaffingReport />;
       case 'admin':
         return <AdminDashboard currentUser={currentUser!} onBack={() => setCurrentView('dashboard')} />;
+      case 'absence-distribution':
+        return <AbsenceDistribution />;
       default:
         return <Dashboard currentUser={currentUser!} isAdmin={isAdmin} />;
     }

@@ -110,8 +110,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
                 `${m.nome_mes}/${m.ano}`,
                 m.total_plantao_realizados,
                 m.total_faltas,
-                `R$ ${m.valor_soma_total?.toFixed(2) || '0,00'}`,
-                `R$ ${m.total_a_pagar?.toFixed(2) || '0,00'}`
+                (m.valor_soma_total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+                (m.total_a_pagar || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
             ];
         });
 
@@ -151,43 +151,44 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
             <meta charset="UTF-8">
             <title>Relatório Administrativo</title>
             <style>
+                @page { size: A4 landscape; margin: 20mm 15mm; }
                 body {
                     font-family: 'Arial', sans-serif;
-                    padding: 40px;
                     color: #000;
+                    font-size: 14px;
                 }
                 h1 {
-                    font-size: 24px;
+                    font-size: 22px;
                     font-weight: 800;
-                    margin-bottom: 8px;
+                    margin-bottom: 6px;
                 }
                 h2 {
-                    font-size: 16px;
+                    font-size: 15px;
                     font-weight: 500;
-                    margin-bottom: 24px;
+                    margin-bottom: 20px;
                     color: #4B5563;
                 }
                 table {
                     width: 100%;
                     border-collapse: collapse;
-                    font-size: 11px;
-                    margin-top: 20px;
+                    font-size: 16px;
+                    margin-top: 16px;
                 }
                 th, td {
                     border: 1px solid #E5E7EB;
-                    padding: 10px;
+                    padding: 12px 16px;
                     text-align: left;
                 }
                 th {
-                    background-color: #F9FAFB;
-                    font-weight: 600;
+                    background-color: #F3F4F6;
+                    font-weight: 700;
+                    font-size: 15px;
                     color: #374151;
+                    white-space: nowrap;
                 }
-                tr:nth-child(even) {
-                    background-color: #F9FAFB;
-                }
+                tr:nth-child(even) { background-color: #F9FAFB; }
                 .text-center { text-align: center; }
-                .text-right { text-align: right; }
+                .text-right  { text-align: right; white-space: nowrap; }
             </style>
         </head>
         <body>
@@ -217,8 +218,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
                             <td>${medico.conta || '-'}</td>
                             <td class="text-center">${medico.total_plantao_realizados}</td>
                             <td class="text-center">${medico.total_faltas}</td>
-                            <td class="text-right">R$ ${medico.valor_soma_total.toFixed(2)}</td>
-                            <td class="text-right">R$ ${medico.total_a_pagar?.toFixed(2) || '0.00'}</td>
+                            <td class="text-right">${(medico.valor_soma_total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                            <td class="text-right">${(medico.total_a_pagar || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
                         </tr>
                         `;
                     }).join('')}
@@ -324,18 +325,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
                     <div className="bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-xl p-4">
                         <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">Total Plantões</p>
-                        <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{totalPlantoes}</p>
+                        <p className="text-2xl md:text-xl lg:text-2xl font-bold text-blue-900 dark:text-blue-100">{totalPlantoes}</p>
                     </div>
 
                     <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-xl p-4">
                         <p className="text-sm text-red-600 dark:text-red-400 font-medium">Total Faltas</p>
-                        <p className="text-2xl font-bold text-red-900 dark:text-red-100">{totalFaltas}</p>
+                        <p className="text-2xl md:text-xl lg:text-2xl font-bold text-red-900 dark:text-red-100">{totalFaltas}</p>
                     </div>
 
                     <div className="bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30 rounded-xl p-4">
                         <p className="text-sm text-green-600 dark:text-green-400 font-medium">Faturamento Total</p>
-                        <p className="text-2xl font-bold text-green-900 dark:text-green-100">
-                            R$ {totalGeral.toFixed(2)}
+                        <p className="text-lg md:text-sm lg:text-base xl:text-xl font-bold text-green-900 dark:text-green-100 break-words">
+                            {totalGeral.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                         </p>
                     </div>
 
@@ -396,10 +397,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-sm font-semibold text-right text-gray-600 dark:text-gray-400">
-                                                R$ {medico.valor_soma_total?.toFixed(2) || '0,00'}
+                                                {(medico.valor_soma_total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                             </td>
                                             <td className="px-6 py-4 text-sm font-bold text-right text-green-600 dark:text-green-400">
-                                                R$ {medico.total_a_pagar?.toFixed(2) || '0,00'}
+                                                {(medico.total_a_pagar || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                             </td>
                                         </tr>
                                         );

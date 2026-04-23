@@ -9,7 +9,7 @@ export interface User {
 
 export type Sector = 'UTI Ped' | 'Semi 2' | 'Semi 1';
 export type Shift = 'Manhã' | 'Tarde' | 'Noite';
-export type View = 'dashboard' | 'reports' | 'earnings' | 'my-records' | 'profile' | 'financial' | 'management' | 'staffing' | 'admin';
+export type View = 'dashboard' | 'reports' | 'earnings' | 'my-records' | 'profile' | 'financial' | 'management' | 'staffing' | 'admin' | 'absence-distribution';
 
 export interface ClockRecord {
   id: number | string;
