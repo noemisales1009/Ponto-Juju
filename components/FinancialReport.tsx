@@ -105,7 +105,7 @@ const FinancialReport: React.FC = () => {
             scale: 2,
             useCORS: true,
             windowWidth: 1200,
-        }).then(canvas => {
+        }).then((canvas: HTMLCanvasElement) => {
             const imgData = canvas.toDataURL('image/png');
             const pdf = new jsPDF('p', 'mm', 'a4');
             const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -133,7 +133,7 @@ const FinancialReport: React.FC = () => {
 
             pdf.save(`relatorio-financeiro-${selectedMonth}.pdf`);
             setIsPrinting(false);
-        }).catch(err => {
+        }).catch((err: Error) => {
             console.error("Erro ao gerar PDF:", err);
             alert("Ocorreu um erro ao gerar o PDF.");
             setIsPrinting(false);

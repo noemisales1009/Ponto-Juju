@@ -53,9 +53,10 @@ export const SHIFT_FULL_NAME_MAP: Record<string, string[]> = {
 /**
  * Retorna a quantidade de vagas (slots) para um determinado setor, turno e data.
  * Regras para UTI Ped:
- * - Semana (Seg, Ter, Qua, Sex): Manhã 5, Tarde 4, Noite 3
- * - Quinta-feira: Manhã 5, Tarde 4, Noite 4 (Exceção)
+ * - Semana (Seg a Sex): Manhã 5, Tarde 4, Noite 3
  * - Fim de Semana (Sáb, Dom): Manhã 4, Tarde 3, Noite 3
+ * - Exceção histórica: até maio/2026 a Quinta à noite exigia 4 plantonistas;
+ *   a partir de junho/2026 passou a exigir 3 como os demais dias.
  */
 export const getSectorSlots = (sector: Sector, shift: Shift, dateStr: string): number => {
   if (sector !== 'UTI Ped') {
@@ -67,6 +68,8 @@ export const getSectorSlots = (sector: Sector, shift: Shift, dateStr: string): n
   const day = date.getDay(); // 0 = Domingo, 1 = Segunda, ..., 4 = Quinta, 6 = Sábado
   const isWeekend = day === 0 || day === 6;
   const isThursday = day === 4;
+  // Quinta à noite exigia 4 plantonistas até maio/2026
+  const thursdayNightHas4 = isThursday && date < new Date('2026-06-01T00:00:00');
 
   if (isWeekend) {
     if (shift === 'Manhã') return 4;
@@ -76,7 +79,7 @@ export const getSectorSlots = (sector: Sector, shift: Shift, dateStr: string): n
     // Dias de semana
     if (shift === 'Manhã') return 5;
     if (shift === 'Tarde') return 4;
-    if (shift === 'Noite') return isThursday ? 4 : 3;
+    if (shift === 'Noite') return thursdayNightHas4 ? 4 : 3;
   }
 
   return SECTOR_CONFIG[sector].slots;

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { SECTOR_CONFIG, SECTOR_ID_MAP } from '../constants';
+import { Sector } from '../types';
 
 interface ReportRecord {
     id: number;
@@ -195,7 +196,7 @@ const Reports: React.FC = () => {
                 logging: false,
                 allowTaint: true,
                 windowWidth: 1200,
-                onclone: (document) => {
+                onclone: (document: Document) => {
                     document.documentElement.classList.remove('dark');
                     const filters = document.querySelector('.report-filters');
                     if (filters) (filters as HTMLElement).style.display = 'none';
@@ -240,7 +241,7 @@ const Reports: React.FC = () => {
                         (badge as HTMLElement).style.padding = '2px 4px';
                     });
                 }
-            }).then(canvas => {
+            }).then((canvas: HTMLCanvasElement) => {
                 const imgData = canvas.toDataURL('image/png');
                 const pdf = new jsPDF('l', 'mm', 'a4');
                 const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -276,7 +277,7 @@ const Reports: React.FC = () => {
                 pdf.save(fileName);
                 
                 setIsPrinting(false);
-            }).catch(err => {
+            }).catch((err: Error) => {
                 console.error("Erro ao gerar PDF:", err);
                 alert("Ocorreu um erro ao gerar o PDF: " + err.message);
                 setIsPrinting(false);

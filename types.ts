@@ -18,6 +18,10 @@ export interface ClockRecord {
   sector: Sector;
   shift: Shift;
   date: string; // ISO string date
+  // Campos vindos direto do banco (ponto_juju2)
+  falta?: string | null;
+  medico?: string;
+  user_id?: number | string;
 }
 
 export interface AbsenceRecord {
