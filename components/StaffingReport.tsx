@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Sector, Shift, ClockRecord, AbsenceRecord } from '../types';
+import { Sector, Shift } from '../types';
 import { SECTOR_CONFIG, getSectorSlots, SECTOR_ID_MAP, SHIFT_FULL_NAME_MAP } from '../constants';
 import { supabase } from '../services/supabaseClient';
+import { getCurrentMonthLocal, getMonthRange } from '../utils/date';
 
 interface DailyStatus {
     date: string;
@@ -16,38 +17,42 @@ interface DailyStatus {
 
 const StaffingReport: React.FC = () => {
     const [selectedSector, setSelectedSector] = useState<Sector>('UTI Ped');
-    const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+    const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthLocal());
     const [monthlyData, setMonthlyData] = useState<DailyStatus[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isPrinting, setIsPrinting] = useState(false);
 
     useEffect(() => {
+        // Ignora respostas de buscas antigas se o mês/setor mudar enquanto carrega
+        let cancelled = false;
+
         const processReportData = async () => {
             if (!selectedMonth || !selectedSector) return;
             setIsLoading(true);
 
             const [year, month] = selectedMonth.split('-').map(Number);
-            const firstDayOfMonth = new Date(Date.UTC(year, month - 1, 1));
+            const { start: startDate, end: endDate } = getMonthRange(selectedMonth);
             const lastDayOfMonth = new Date(Date.UTC(year, month, 0));
-            
-            const startDate = firstDayOfMonth.toISOString().split('T')[0];
-            const endDate = lastDayOfMonth.toISOString().split('T')[0];
 
-            // Buscar pontos do Supabase
+            // Usar o mapeamento correto de setor_id de constants.ts
+            const sectorId = SECTOR_ID_MAP[selectedSector];
+
+            // Buscar pontos do Supabase (só do setor selecionado)
             const { data: pontos, error } = await supabase
                 .from('ponto_juju2')
                 .select('id, data_dia, turno, falta, setor_id')
+                .eq('setor_id', sectorId)
                 .gte('data_dia', startDate)
                 .lte('data_dia', endDate);
 
+            if (cancelled) return;
+
             if (error) {
-                console.error('❌ Erro ao buscar pontos:', error);
+                console.error('Erro ao buscar pontos:', error);
                 setMonthlyData([]);
                 setIsLoading(false);
                 return;
             }
-
-            console.log('✅ Pontos carregados:', pontos?.length);
 
             const sectorConfig = SECTOR_CONFIG[selectedSector];
             if (!sectorConfig) {
@@ -55,9 +60,6 @@ const StaffingReport: React.FC = () => {
                 setIsLoading(false);
                 return;
             }
-
-            // Usar o mapeamento correto de setor_id de constants.ts
-            const sectorId = SECTOR_ID_MAP[selectedSector];
 
             const daysInMonth = lastDayOfMonth.getUTCDate();
             const newMonthlyData: DailyStatus[] = [];
@@ -102,11 +104,12 @@ const StaffingReport: React.FC = () => {
         };
         
         processReportData();
+        return () => { cancelled = true; };
     }, [selectedSector, selectedMonth]);
 
     const handlePrint = () => {
-        // @ts-ignore
-        const { jsPDF } = window.jspdf;
+        // A biblioteca vem de CDN; se não carregar, avisa em vez de quebrar
+        const jsPDF = (window as any).jspdf?.jsPDF;
 
         if (!jsPDF) {
             alert('Erro ao carregar a biblioteca de PDF. Tente novamente.');
@@ -223,7 +226,7 @@ const StaffingReport: React.FC = () => {
                 startY: finalY + 14,
                 margin: { left: 10, right: 10 },
                 styles: { fontSize: 10, cellPadding: 3 },
-                headStyles: { fillColor: [99, 102, 241], textColor: [255, 255, 255], fontStyle: 'bold' },
+                headStyles: { fillColor: [15, 118, 110], textColor: [255, 255, 255], fontStyle: 'bold' },
                 theme: 'grid',
             });
 

@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { ClockRecord, User } from '../types';
+import { User } from '../types';
 import { supabase } from '../services/supabaseClient';
+import { formatDateBR, getCurrentMonthLocal, getTodayLocal } from '../utils/date';
 
 interface MyRecordsProps {
     currentUser: User;
@@ -12,57 +13,59 @@ const MyRecords: React.FC<MyRecordsProps> = ({ currentUser }) => {
     const [filterType, setFilterType] = useState<'month' | 'range'>('month');
     const [loading, setLoading] = useState(false);
     
-    const today = new Date();
-    const currentMonth = today.getFullYear() + '-' + ('0' + (today.getMonth() + 1)).slice(-2);
-    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+    // Datas locais (toISOString viraria o dia/mês seguinte depois das 21h no Brasil)
+    const currentMonth = getCurrentMonthLocal();
 
     const [selectedMonth, setSelectedMonth] = useState(currentMonth);
-    const [startDate, setStartDate] = useState(firstDayOfMonth);
-    const [endDate, setEndDate] = useState(today.toISOString().split('T')[0]);
+    const [startDate, setStartDate] = useState(`${currentMonth}-01`);
+    const [endDate, setEndDate] = useState(getTodayLocal());
 
-    // ✅ NOVO: Buscar dados do Supabase em tempo real
+    // Buscar os registros do próprio usuário no Supabase
     useEffect(() => {
+        // Ignora a resposta se o usuário mudar enquanto carrega
+        let cancelled = false;
+
         const fetchRecords = async () => {
             setLoading(true);
             try {
                 const { data: pontos, error } = await supabase
                     .from('ponto_juju2')
-                    .select('*')
+                    .select('id, data_dia, turno, valor_plantao, falta, dia_semana_calculado')
                     .eq('user_id', currentUser.id)
                     .order('data_dia', { ascending: false });
 
+                if (cancelled) return;
+
                 if (error) {
-                    console.error('❌ Erro ao buscar registros:', error);
+                    console.error('Erro ao buscar registros:', error);
                     setUserRecords([]);
                     return;
                 }
 
-                console.log('✅ Registros encontrados:', pontos);
                 setUserRecords(pontos || []);
             } catch (err) {
-                console.error('❌ Erro geral:', err);
+                if (cancelled) return;
+                console.error('Erro geral ao buscar registros:', err);
                 setUserRecords([]);
             } finally {
-                setLoading(false);
+                if (!cancelled) setLoading(false);
             }
         };
 
         fetchRecords();
+        return () => { cancelled = true; };
     }, [currentUser.id]);
 
     const filteredRecords = useMemo(() => {
         if (filterType === 'month') {
             return userRecords.filter(r => r.data_dia && r.data_dia.startsWith(selectedMonth));
         } else { // 'range'
+            // Datas "YYYY-MM-DD" comparam corretamente como texto, sem depender de fuso
             return userRecords.filter(r => {
                 if (!r.data_dia) return false;
-                const recordDate = new Date(r.data_dia);
-                const start = new Date(startDate);
-                start.setUTCHours(0,0,0,0);
-                const end = new Date(endDate);
-                end.setUTCHours(23,59,59,999);
-                
-                return recordDate >= start && recordDate <= end;
+                if (startDate && r.data_dia < startDate) return false;
+                if (endDate && r.data_dia > endDate) return false;
+                return true;
             });
         }
     }, [userRecords, filterType, selectedMonth, startDate, endDate]);
@@ -148,7 +151,7 @@ const MyRecords: React.FC<MyRecordsProps> = ({ currentUser }) => {
                                 <tr key={record.id} className="hover:bg-pmp-primary/5 dark:hover:bg-dark-pmp-primary/10 transition-colors">
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary">
-                                            {new Date(record.data_dia + 'T00:00:00').toLocaleDateString('pt-BR', {timeZone: 'UTC'})}
+                                            {formatDateBR(record.data_dia)}
                                         </div>
                                         <div className="text-xs text-pmp-text-secondary dark:text-dark-pmp-text-secondary">
                                             {record.dia_semana_calculado}
@@ -156,7 +159,7 @@ const MyRecords: React.FC<MyRecordsProps> = ({ currentUser }) => {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-pmp-text-primary dark:text-dark-pmp-text-primary">{record.turno}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600 dark:text-green-400">
-                                        {record.valor_plantao ? `R$ ${record.valor_plantao.toFixed(2)}` : '-'}
+                                        {Number(record.valor_plantao) ? `R$ ${Number(record.valor_plantao).toFixed(2)}` : '-'}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         {record.falta === 'Sim' ? (

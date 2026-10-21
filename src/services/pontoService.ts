@@ -1,5 +1,15 @@
 import { supabase } from '../../services/supabaseClient';
-import { User } from '../../types';
+import { SECTOR_ID_MAP, SHIFT_FULL_NAME_MAP, matchesShift } from '../../constants';
+import { Shift } from '../../types';
+import { formatDateBR, formatDateISO, isValidDateISO, toDbTimestamp } from '../../utils/date';
+import { friendlyError } from '../../utils/errors';
+
+const VALID_SHIFTS = Object.keys(SHIFT_FULL_NAME_MAP);
+const VALID_SECTOR_IDS = Object.values(SECTOR_ID_MAP);
+
+// Aceita "YYYY-MM-DD" (preferido) ou Date local
+const toDateISO = (data: string | Date): string =>
+  typeof data === 'string' ? data : formatDateISO(data);
 
 /**
  * ✅ Verificar se o médico já bateu ponto no MESMO TURNO
@@ -7,15 +17,15 @@ import { User } from '../../types';
  */
 export const verificarPontoDuplicado = async (
   userId: string | number,
-  data: Date,
+  data: string | Date,
   turno: string
 ): Promise<{ pode_bater: boolean; mensagem?: string }> => {
-  const dataDia = new Date(data).toISOString().split('T')[0];
+  const dataDia = toDateISO(data);
 
   // Buscar TODOS os pontos do dia para este usuário
   const { data: registros, error } = await supabase
     .from('ponto_juju2')
-    .select('id, turno, data_dia')
+    .select('id, turno')
     .eq('user_id', userId)
     .eq('data_dia', dataDia);
 
@@ -23,34 +33,18 @@ export const verificarPontoDuplicado = async (
     console.error('Erro ao verificar ponto duplicado:', error);
     return {
       pode_bater: false,
-      mensagem: 'Erro ao verificar histórico de ponto',
+      mensagem: 'Não foi possível verificar o histórico de ponto. Tente novamente.',
     };
   }
 
-  // Verificar se já existe um ponto neste TURNO específico
   // Aceita variações do nome (ex: "Manhã" combina com "Manhã Semana (07h - 13h)")
-  if (registros && registros.length > 0) {
-    const jaBateuNesteTurno = registros.some(r => {
-      // Se o turno é igual exatamente, não permite
-      if (r.turno === turno) return true;
-      
-      // Se o turno salvo CONTÉM o turno procurado, não permite
-      // Ex: "Manhã Semana (07h - 13h)" contém "Manhã"
-      if (r.turno?.includes(turno)) return true;
-      
-      // Se o turno procurado CONTÉM o turno salvo, não permite
-      if (turno.includes(r.turno)) return true;
-      
-      return false;
-    });
+  const jaBateuNesteTurno = (registros || []).some(r => matchesShift(r.turno, turno as Shift));
 
-    if (jaBateuNesteTurno) {
-      const turnosRegistrados = registros.map(r => r.turno).join(', ');
-      return {
-        pode_bater: false,
-        mensagem: `⚠️ Você já bateu ponto no turno da ${turno} em 2026-01-06! Registrado como: ${turnosRegistrados}`,
-      };
-    }
+  if (jaBateuNesteTurno) {
+    return {
+      pode_bater: false,
+      mensagem: `⚠️ Você já registrou o turno da ${turno} em ${formatDateBR(dataDia)}.`,
+    };
   }
 
   return { pode_bater: true };
@@ -61,16 +55,26 @@ export const verificarPontoDuplicado = async (
  */
 export const registrarPonto = async (
   userId: string | number,
-  data: Date,
+  data: string | Date,
   turno: string,
   setorId: number,
   falta?: string
 ): Promise<{ sucesso: boolean; erro?: string; dados?: any }> => {
-  console.log('📝 Tentando registrar ponto:', { userId, data, turno, setorId, falta });
+  const dataDia = toDateISO(data);
+
+  // Validação de entrada
+  if (!isValidDateISO(dataDia)) {
+    return { sucesso: false, erro: 'Selecione uma data válida.' };
+  }
+  if (!VALID_SHIFTS.includes(turno)) {
+    return { sucesso: false, erro: 'Turno inválido.' };
+  }
+  if (!VALID_SECTOR_IDS.includes(setorId)) {
+    return { sucesso: false, erro: 'Setor inválido.' };
+  }
 
   // ✅ Validação: verifica se já bateu neste TURNO específico
-  const validacao = await verificarPontoDuplicado(userId, data, turno);
-  console.log('✅ Validação duplicado:', validacao);
+  const validacao = await verificarPontoDuplicado(userId, dataDia, turno);
 
   if (!validacao.pode_bater) {
     return {
@@ -79,25 +83,13 @@ export const registrarPonto = async (
     };
   }
 
-  // Converter data para formato DATE (YYYY-MM-DD)
-  const dataDia = new Date(data).toISOString().split('T')[0];
-  // Também enviar como timestamp completo para o trigger
-  const dataTimestamp = new Date(data).toISOString();
-  
-  console.log('📅 Data formatada para envio:', {
-    dataOriginal: data,
-    dataFormatada: dataDia,
-    dataTimestamp: dataTimestamp,
-    tipo: typeof dataDia
-  });
-
   // ✅ Obter usuário autenticado atual (quem está registrando)
   const { data: { user: currentUser } } = await supabase.auth.getUser();
-  
+
   if (!currentUser) {
     return {
       sucesso: false,
-      erro: 'Usuário não autenticado',
+      erro: 'Sessão expirada. Faça login novamente.',
     };
   }
 
@@ -105,7 +97,7 @@ export const registrarPonto = async (
   const insertData = {
     user_id: userId,
     created_by: currentUser.id,  // ✅ QUEM está registrando o ponto
-    data: dataTimestamp,  // ✅ IMPORTANTE: Enviar também o campo `data` para o trigger
+    data: toDbTimestamp(dataDia),  // ✅ O trigger deriva data_dia deste campo
     data_dia: dataDia,
     turno,
     setor_id: setorId,
@@ -113,24 +105,19 @@ export const registrarPonto = async (
     turno_preenchido: !falta,
   };
 
-  console.log('📤 Dados sendo enviados ao Supabase:', insertData);
-
   const { data: resultado, error } = await supabase
     .from('ponto_juju2')
     .insert(insertData)
     .select();
 
-  console.log('🔄 Resposta do Supabase:', { resultado, error });
-
   if (error) {
-    console.error('❌ ERRO ao registrar ponto:', error);
+    console.error('Erro ao registrar ponto:', error);
     return {
       sucesso: false,
-      erro: error.message || 'Erro ao registrar ponto',
+      erro: friendlyError(error, 'Não foi possível registrar o ponto. Tente novamente.'),
     };
   }
 
-  console.log('✅ SUCESSO! Ponto registrado:', resultado);
   return {
     sucesso: true,
     dados: resultado?.[0],
@@ -142,8 +129,8 @@ export const registrarPonto = async (
  */
 export const buscarHistoricoPontos = async (
   userId: string,
-  dataInicio?: Date,
-  dataFim?: Date
+  dataInicio?: string,
+  dataFim?: string
 ): Promise<any[]> => {
   let query = supabase
     .from('ponto_juju2')
@@ -161,11 +148,11 @@ export const buscarHistoricoPontos = async (
     .eq('user_id', userId);
 
   if (dataInicio) {
-    query = query.gte('data_dia', dataInicio.toISOString().split('T')[0]);
+    query = query.gte('data_dia', dataInicio);
   }
 
   if (dataFim) {
-    query = query.lte('data_dia', dataFim.toISOString().split('T')[0]);
+    query = query.lte('data_dia', dataFim);
   }
 
   const { data, error } = await query.order('data', { ascending: false });
@@ -177,65 +164,3 @@ export const buscarHistoricoPontos = async (
 
   return data || [];
 };
-
-/**
- * 📈 Calcular ganhos do mês
- */
-export const calcularGanhosMes = async (
-  userId: string,
-  mes: number,
-  ano: number
-): Promise<{ total: number; registros: any[] }> => {
-  const dataInicio = new Date(ano, mes - 1, 1);
-  const dataFim = new Date(ano, mes, 0);
-
-  const registros = await buscarHistoricoPontos(userId, dataInicio, dataFim);
-
-  const total = registros.reduce((acc, reg) => acc + (reg.valor_plantao || 0), 0);
-
-  return { total, registros };
-};
-
-/**
- * ❌ Deletar um ponto (com verificação de segurança)
- */
-export const deletarPonto = async (pontoId: number): Promise<boolean> => {
-  const { error } = await supabase
-    .from('ponto_juju2')
-    .delete()
-    .eq('id', pontoId);
-
-  if (error) {
-    console.error('Erro ao deletar ponto:', error);
-    return false;
-  }
-
-  return true;
-};
-
-/**
- * ✏️ Atualizar um ponto
- */
-export const atualizarPonto = async (
-  pontoId: number,
-  updates: {
-    turno?: string;
-    setor_id?: number;
-    falta?: string;
-    valor_plantao?: number;
-  }
-): Promise<boolean> => {
-  const { error } = await supabase
-    .from('ponto_juju2')
-    .update(updates)
-    .eq('id', pontoId);
-
-  if (error) {
-    console.error('Erro ao atualizar ponto:', error);
-    return false;
-  }
-
-  return true;
-};
-
-export default supabase;

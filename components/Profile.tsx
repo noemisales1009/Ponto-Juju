@@ -1,11 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { User } from '../types';
 import { supabase } from '../services/supabaseClient';
+import Avatar from './Avatar';
 
 interface ProfileProps {
     user: User;
     onUpdateUser: (updates: { name?: string; photoUrl?: string }) => void;
 }
+
+const ALLOWED_PHOTO_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+const MAX_PHOTO_BYTES = 500 * 1024;
+const NAME_MIN_LENGTH = 2;
+const NAME_MAX_LENGTH = 100;
 
 const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
     const [name, setName] = useState(user.name);
@@ -20,18 +26,16 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
         const fetchUserProfile = async () => {
             setLoading(true);
             try {
-                console.log('📥 Buscando dados do perfil do Supabase para user_id:', user.id);
                 
                 const { data: usuarioData, error: usuarioError } = await supabase
                     .from('usuarios')
                     .select('user_id, nome, email, foto')
                     .eq('user_id', user.id)
-                    .single();
+                    .maybeSingle();
 
                 if (usuarioError) {
-                    console.warn('⚠️ Erro ao buscar usuários:', usuarioError.message);
+                    console.warn('Erro ao buscar perfil:', usuarioError.message);
                 } else if (usuarioData) {
-                    console.log('✅ Dados carregados:', usuarioData);
                     setName(usuarioData.nome || user.name);
                     setEmail(usuarioData.email || user.email);
                     if (usuarioData.foto) {
@@ -39,7 +43,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
                     }
                 }
             } catch (err) {
-                console.error('❌ Erro ao buscar perfil:', err);
+                console.error('Erro ao buscar perfil:', err);
             } finally {
                 setLoading(false);
             }
@@ -51,6 +55,18 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
+            // Valida tipo e tamanho antes de ler o arquivo
+            if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
+                alert('Formato inválido. Use uma imagem PNG, JPG ou WebP.');
+                event.target.value = '';
+                return;
+            }
+            if (file.size > MAX_PHOTO_BYTES) {
+                alert('A foto deve ter no máximo 500 KB.');
+                event.target.value = '';
+                return;
+            }
+
             const reader = new FileReader();
             reader.onloadend = () => {
                 setPhotoPreview(reader.result as string);
@@ -60,6 +76,12 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
     };
 
     const handleSaveChanges = () => {
+        const trimmedName = name.trim();
+        if (trimmedName.length < NAME_MIN_LENGTH || trimmedName.length > NAME_MAX_LENGTH) {
+            alert(`O nome deve ter entre ${NAME_MIN_LENGTH} e ${NAME_MAX_LENGTH} caracteres.`);
+            return;
+        }
+
         const updates: { name?: string; photoUrl?: string } = {};
         if (name.trim() !== user.name) {
             updates.name = name.trim();
@@ -89,11 +111,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
             <div className="bg-pmp-surface dark:bg-dark-pmp-surface p-6 sm:p-8 rounded-2xl shadow-xl space-y-8 border border-gray-100 dark:border-gray-700/50">
                 <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-6">
                     <div className="relative group">
-                        <img 
-                            src={photoPreview || photoUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=6366F1&color=fff&size=128`} 
-                            alt="Foto de perfil" 
-                            className="h-28 w-28 rounded-full object-cover ring-4 ring-pmp-primary/20 dark:ring-pmp-primary/40 transition-all duration-300 group-hover:ring-pmp-primary"
-                        />
+                        <Avatar name={user.name} photoUrl={photoPreview || photoUrl} className="h-28 w-28 ring-4 ring-pmp-primary/20 dark:ring-pmp-primary/40 transition-all duration-300 group-hover:ring-pmp-primary" textClass="text-4xl" />
                         <button 
                             onClick={() => fileInputRef.current?.click()}
                             className="absolute bottom-0 right-0 bg-pmp-primary hover:bg-pmp-primary-dark text-white rounded-full p-2 shadow-lg transition-transform hover:scale-110"
@@ -107,7 +125,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
                         <input 
                             ref={fileInputRef}
                             type="file" 
-                            accept="image/*"
+                            accept="image/png,image/jpeg,image/webp"
                             className="hidden"
                             onChange={handleFileChange}
                         />
@@ -127,6 +145,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
                             type="text"
                             id="name"
                             value={name}
+                            maxLength={NAME_MAX_LENGTH}
                             onChange={(e) => setName(e.target.value)}
                             className="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700/50 text-pmp-text-primary dark:text-white shadow-sm focus:border-pmp-primary focus:ring-pmp-primary sm:text-sm py-2.5 px-4"
                         />

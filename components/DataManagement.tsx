@@ -2,10 +2,15 @@ import React, { useState } from 'react';
 import { Sector } from '../types';
 import { SECTOR_CONFIG, SECTOR_ID_MAP } from '../constants';
 import { supabase } from '../services/supabaseClient';
+import { getCurrentMonthLocal, getMonthRange, isValidMonth } from '../utils/date';
+import { friendlyError } from '../utils/errors';
+
+const CONFIRMATION_WORD = 'APAGAR';
 
 const DataManagement: React.FC = () => {
     const [selectedSector, setSelectedSector] = useState<Sector>('UTI Ped');
-    const [selectedMonth, setSelectedMonth] = useState('2025-11');
+    // Começa no mês atual (um mês fixo antigo como padrão é perigoso numa tela que apaga dados)
+    const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthLocal());
     const [isDeleting, setIsDeleting] = useState(false);
 
     const handleDelete = async () => {
@@ -13,33 +18,37 @@ const DataManagement: React.FC = () => {
             alert("Por favor, selecione um setor e um mês.");
             return;
         }
-        
+
+        // Validação de entrada: setor e mês precisam ser valores conhecidos
+        const setorId = SECTOR_ID_MAP[selectedSector];
+        if (!setorId || !isValidMonth(selectedMonth)) {
+            alert("Setor ou mês inválido.");
+            return;
+        }
+
         const [year, month] = selectedMonth.split('-').map(Number);
         const monthName = new Date(Date.UTC(year, month - 1, 1)).toLocaleString('pt-BR', { month: 'long', timeZone: 'UTC' });
         const capitalizedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
-        
-        const confirmation = window.confirm(
-            `Você tem certeza que deseja apagar TODOS os registros de ponto do setor "${selectedSector}" para o mês de ${capitalizedMonth} de ${year}?\n\nESTA AÇÃO É IRREVERSÍVEL.`
+
+        // Confirmação forte: é preciso digitar a palavra, um OK acidental não basta
+        const typed = window.prompt(
+            `Você vai apagar TODOS os registros de ponto do setor "${selectedSector}" de ${capitalizedMonth} de ${year}.\n\nESTA AÇÃO É IRREVERSÍVEL.\n\nPara confirmar, digite ${CONFIRMATION_WORD}:`
         );
 
-        if (!confirmation) return;
+        if (typed === null) return;
+        if (typed.trim().toUpperCase() !== CONFIRMATION_WORD) {
+            alert('Confirmação incorreta. Nada foi apagado.');
+            return;
+        }
 
         setIsDeleting(true);
-        
+
         try {
-            // Calcular primeiro e último dia do mês
-            const firstDay = new Date(year, month - 1, 1);
-            const lastDay = new Date(year, month, 0);
-            const startDate = firstDay.toISOString().split('T')[0];
-            const endDate = lastDay.toISOString().split('T')[0];
-            
-            // Buscar ID do setor
-            const setorId = SECTOR_ID_MAP[selectedSector];
-            
-            console.log('🗑️ Deletando registros:', { setorId, startDate, endDate });
-            
+            // Primeiro e último dia do mês (sem conversão de fuso)
+            const { start: startDate, end: endDate } = getMonthRange(selectedMonth);
+
             // Deletar registros do Supabase
-            const { data, error, count } = await supabase
+            const { error, count } = await supabase
                 .from('ponto_juju2')
                 .delete({ count: 'exact' })
                 .eq('setor_id', setorId)
@@ -47,22 +56,27 @@ const DataManagement: React.FC = () => {
                 .lte('data_dia', endDate);
 
             if (error) {
-                console.error('❌ Erro ao deletar:', error);
-                alert(`Erro ao apagar registros: ${error.message}`);
+                console.error('Erro ao deletar registros:', error);
+                alert(`Erro ao apagar registros: ${friendlyError(error, 'Não foi possível apagar os registros.')}`);
                 return;
             }
 
-            alert(`✅ ${count || 0} registro(s) apagado(s) com sucesso.`);
-            
+            if (!count) {
+                alert('Nenhum registro foi apagado (não havia registros ou você não tem permissão).');
+                return;
+            }
+
+            alert(`✅ ${count} registro(s) apagado(s) com sucesso.`);
+
         } catch (error) {
-            console.error('❌ Erro geral:', error);
+            console.error('Erro geral ao apagar registros:', error);
             alert('Ocorreu um erro ao apagar os registros.');
         } finally {
             setIsDeleting(false);
         }
     };
 
-    const inputStyles = "block w-full rounded-md border-gray-300 dark:border-gray-600 bg-gray-800 text-white dark:bg-gray-700 dark:text-white shadow-sm focus:border-pmp-primary focus:ring-pmp-primary sm:text-sm p-2.5";
+    const inputStyles = "block w-full rounded-md border-gray-300 dark:border-gray-600 bg-gray-800 text-white dark:bg-gray-700 dark:text-white shadow-sm focus:border-pmp-primary focus:ring-pmp-primary sm:text-sm p-2.5 [color-scheme:dark]";
 
     return (
         <div className="max-w-xl mx-auto">
@@ -113,7 +127,7 @@ const DataManagement: React.FC = () => {
                         </p>
                     </div>
                 </div>
-                
+
                 <div className="flex justify-end pt-2">
                     <button
                         onClick={handleDelete}

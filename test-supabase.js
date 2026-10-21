@@ -1,8 +1,14 @@
 // Script para testar conexão com Supabase e verificar tabelas
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://ekhceddgaxnrhkpxivag.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVraGNlZGRnYXhucmhrcHhpdmFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDU1MDMxMzksImV4cCI6MjAyMTA3OTEzOX0.JAi00zIpygQwqeRzjrm6Tn_Vufsz1q9X6g6uWUzBCQU';
+// Credenciais via variaveis de ambiente (nunca fixe chaves no codigo).
+// Uso: SUPABASE_URL=... SUPABASE_ANON_KEY=... node test-supabase.js
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY;
+if (!supabaseUrl || !supabaseKey) {
+    console.error('Defina SUPABASE_URL e SUPABASE_ANON_KEY antes de executar.');
+    process.exit(1);
+}
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 

@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { Sector } from '../types';
 import { SECTOR_CONFIG, SECTOR_ID_MAP } from '../constants';
 import { supabase } from '../services/supabaseClient';
+import { escapeHtml, PRINT_CSP_META } from '../utils/html';
+import { getCurrentMonthLocal } from '../utils/date';
 
 interface ViewDistribRow {
   falta_id: number;
@@ -40,7 +42,7 @@ const formatCurrency = (value: number) =>
 const TURNO_COLORS: Record<string, string> = {
   'Manhã': 'text-amber-600 dark:text-amber-400',
   'Tarde': 'text-blue-600 dark:text-blue-400',
-  'Noite': 'text-indigo-600 dark:text-indigo-400',
+  'Noite': 'text-teal-600 dark:text-teal-400',
 };
 
 const TURNO_ICONS: Record<string, string> = {
@@ -53,13 +55,16 @@ const SHIFT_ORDER: Record<string, number> = { 'Manhã': 0, 'Tarde': 1, 'Noite': 
 
 const AbsenceDistribution: React.FC = () => {
   const [selectedSector, setSelectedSector] = useState<Sector>('UTI Ped');
-  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthLocal());
   const [isLoading, setIsLoading] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [distributions, setDistributions] = useState<DistributionItem[]>([]);
   const [doctorSummary, setDoctorSummary] = useState<(ViewBonusRow & { nome: string })[]>([]);
 
   useEffect(() => {
+    // Ignora respostas de buscas antigas se o mês/setor mudar enquanto carrega
+    let cancelled = false;
+
     const fetchData = async () => {
       if (!selectedMonth || !selectedSector) return;
       setIsLoading(true);
@@ -83,6 +88,8 @@ const AbsenceDistribution: React.FC = () => {
             .eq('setor_id', sectorId)
             .order('total_bonus', { ascending: false }),
         ]);
+
+      if (cancelled) return;
 
       if (distribError) console.error('Erro v_distribuicao_faltas:', distribError);
       if (bonusError)  console.error('Erro v_bonus_por_medico_mes:', bonusError);
@@ -134,9 +141,14 @@ const AbsenceDistribution: React.FC = () => {
     };
 
     fetchData();
+    return () => { cancelled = true; };
   }, [selectedMonth, selectedSector]);
 
-  const totalDistribuido = distributions.reduce((s, d) => s + d.absentDoctor.valorPlantao, 0);
+  // Só conta faltas que tiveram médicos presentes para dividir: sem presentes, o bônus é 0 e nada é distribuído
+  const totalDistribuido = distributions.reduce(
+    (s, d) => (d.presentDoctors.length > 0 ? s + d.absentDoctor.valorPlantao : s),
+    0
+  );
 
   const handlePrint = () => {
     if (distributions.length === 0) return;
@@ -154,6 +166,7 @@ const AbsenceDistribution: React.FC = () => {
       <html>
       <head>
         <meta charset="UTF-8">
+        ${PRINT_CSP_META}
         <title>Distribuição de Faltas</title>
         <style>
           @page { size: A4; margin: 20mm 15mm; }
@@ -184,8 +197,8 @@ const AbsenceDistribution: React.FC = () => {
       <body>
         <div class="header">
           <h1>Distribuição de Faltas</h1>
-          <p class="subtitle">Setor: ${selectedSector} &nbsp;|&nbsp; Período: ${periodText}</p>
-          <p class="gerado">Gerado em: ${geradoEm}</p>
+          <p class="subtitle">Setor: ${escapeHtml(selectedSector)} &nbsp;|&nbsp; Período: ${escapeHtml(periodText)}</p>
+          <p class="gerado">Gerado em: ${escapeHtml(geradoEm)}</p>
         </div>
 
         <div class="summary">
@@ -214,11 +227,11 @@ const AbsenceDistribution: React.FC = () => {
           <tbody>
             ${distributions.map(item => `
               <tr>
-                <td style="white-space:nowrap">${item.dateFormatted}</td>
-                <td class="center">${item.turno}</td>
-                <td>${item.absentDoctor.nome}</td>
+                <td style="white-space:nowrap">${escapeHtml(item.dateFormatted)}</td>
+                <td class="center">${escapeHtml(item.turno)}</td>
+                <td>${escapeHtml(item.absentDoctor.nome)}</td>
                 <td class="right">${formatCurrency(item.absentDoctor.valorPlantao)}</td>
-                <td>${item.presentDoctors.length === 0 ? 'Nenhum presente' : item.presentDoctors.map(d => d.nome).join('<br>')}</td>
+                <td>${item.presentDoctors.length === 0 ? 'Nenhum presente' : item.presentDoctors.map(d => escapeHtml(d.nome)).join('<br>')}</td>
                 <td class="right">${item.presentDoctors.length === 0 ? '—' : formatCurrency(item.bonusPerDoctor)}</td>
               </tr>
             `).join('')}
@@ -240,8 +253,8 @@ const AbsenceDistribution: React.FC = () => {
             ${doctorSummary.map((d, i) => `
               <tr>
                 <td class="center">${i + 1}</td>
-                <td>${d.nome}</td>
-                <td class="center">${d.total_coberturas} cobertura${d.total_coberturas !== 1 ? 's' : ''}</td>
+                <td>${escapeHtml(d.nome)}</td>
+                <td class="center">${escapeHtml(d.total_coberturas)} cobertura${d.total_coberturas !== 1 ? 's' : ''}</td>
                 <td class="right">${formatCurrency(d.total_bonus)}</td>
               </tr>
             `).join('')}
@@ -263,10 +276,12 @@ const AbsenceDistribution: React.FC = () => {
     if (!printWindow) { setIsPrinting(false); return; }
     printWindow.document.write(htmlContent);
     printWindow.document.close();
-    printWindow.onload = () => {
+    // onload pode já ter disparado depois do document.close(); um pequeno atraso é mais confiável
+    setTimeout(() => {
+      printWindow.focus();
       printWindow.print();
       setIsPrinting(false);
-    };
+    }, 250);
   };
 
   return (

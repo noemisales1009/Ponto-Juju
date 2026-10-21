@@ -1,6 +1,8 @@
 
 import React from 'react';
+import LogoIcon from './LogoIcon';
 import { User } from '../types';
+import Avatar from './Avatar';
 
 interface HeaderProps {
   user: User;
@@ -20,9 +22,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onMenuClick, theme, set
       <div className="flex items-center justify-between lg:justify-end h-16 px-4 sm:px-6 lg:px-8">
           {/* Logo/Title on mobile instead of hamburger */}
           <div className="flex items-center lg:hidden text-pmp-primary dark:text-dark-pmp-primary text-lg font-bold">
-             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6 6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
-            </svg>
+             <LogoIcon className="h-6 w-6 mr-2" />
             Ponto Kids
           </div>
 
@@ -44,11 +44,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onMenuClick, theme, set
              </button>
 
              <div className="flex items-center">
-                 <img 
-                    src={user.photoUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=6366F1&color=fff`} 
-                    alt="Foto de perfil" 
-                    className="h-8 w-8 rounded-full object-cover mr-2 lg:mr-3 ring-2 ring-transparent hover:ring-pmp-primary transition-all"
-                 />
+                 <Avatar name={user.name} photoUrl={user.photoUrl} className="h-8 w-8 mr-2 lg:mr-3 ring-2 ring-transparent hover:ring-pmp-primary transition-all" />
                  <span className="text-pmp-text-primary dark:text-dark-pmp-text-primary text-xs sm:text-sm font-semibold hidden sm:block">{user.name}</span>
                  <button
                   onClick={onLogout}

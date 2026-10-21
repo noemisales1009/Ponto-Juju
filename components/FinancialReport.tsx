@@ -1,7 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../services/supabaseClient';
 import PDFReportContent from './PDFReportContent';
+import { getCurrentMonthLocal } from '../utils/date';
+import { getValorAPagar, getValorTotal, maskCpf } from '../utils/finance';
 
 interface FinancialReportRow {
     userId: string;
@@ -20,18 +22,21 @@ interface FinancialReportRow {
 
 const FinancialReport: React.FC = () => {
     const [reportData, setReportData] = useState<FinancialReportRow[]>([]);
-    const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+    const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthLocal());
     const [isLoading, setIsLoading] = useState(true);
     const [isPrinting, setIsPrinting] = useState(false);
+    const [showCpf, setShowCpf] = useState(false);
+
+    // Garante que só a resposta da busca mais recente atualiza a tela
+    const latestRequest = useRef(0);
 
     const fetchData = async (monthYear: string) => {
+        const requestId = ++latestRequest.current;
         setIsLoading(true);
         try {
             const [year, monthNum] = monthYear.split('-');
             const monthName = new Date(parseInt(year), parseInt(monthNum) - 1, 1)
                 .toLocaleString('en-US', { month: 'long' });
-
-            console.log('🔍 Buscando financeiro usando view:', { ano: parseInt(year), mes: monthName });
 
             // Usar a view pronta nova_total_por_medico_mes
             const { data, error } = await supabase
@@ -40,14 +45,13 @@ const FinancialReport: React.FC = () => {
                 .eq('ano', parseInt(year))
                 .eq('nome_mes', monthName);
 
+            if (requestId !== latestRequest.current) return;
+
             if (error) {
-                console.error('❌ Erro ao buscar dados da view:', error);
+                console.error('Erro ao buscar dados da view:', error);
                 setReportData([]);
-                setIsLoading(false);
                 return;
             }
-
-            console.log('✅ Dados encontrados:', data?.length || 0);
 
             // Mapear dados da view para o formato do componente
             const mappedData: FinancialReportRow[] = (data || []).map((row: any) => ({
@@ -61,16 +65,17 @@ const FinancialReport: React.FC = () => {
                     account: row.conta || null
                 },
                 totalShifts: row.total_plantao_realizados || 0,
-                totalToPay: parseFloat(row.valor_soma_total) || 0,
-                totalComDesconto: parseFloat(row.total_a_pagar) || 0
+                totalToPay: getValorTotal(row),
+                totalComDesconto: getValorAPagar(row)
             }));
 
             setReportData(mappedData);
         } catch (err) {
-            console.error('❌ Erro ao buscar relatório financeiro:', err);
+            if (requestId !== latestRequest.current) return;
+            console.error('Erro ao buscar relatório financeiro:', err);
             setReportData([]);
         } finally {
-            setIsLoading(false);
+            if (requestId === latestRequest.current) setIsLoading(false);
         }
     };
 
@@ -83,10 +88,9 @@ const FinancialReport: React.FC = () => {
     };
 
     const handlePrint = () => {
-        // @ts-ignore
-        const { jsPDF } = window.jspdf;
-        // @ts-ignore
-        const html2canvas = window.html2canvas;
+        // As bibliotecas vêm de CDN; se não carregarem, avisa em vez de quebrar
+        const jsPDF = (window as any).jspdf?.jsPDF;
+        const html2canvas = (window as any).html2canvas;
 
         if (!jsPDF || !html2canvas) {
             alert('Erro ao carregar bibliotecas de PDF. Tente novamente.');
@@ -105,7 +109,7 @@ const FinancialReport: React.FC = () => {
             scale: 2,
             useCORS: true,
             windowWidth: 1200,
-        }).then(canvas => {
+        }).then((canvas: HTMLCanvasElement) => {
             const imgData = canvas.toDataURL('image/png');
             const pdf = new jsPDF('p', 'mm', 'a4');
             const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -133,7 +137,7 @@ const FinancialReport: React.FC = () => {
 
             pdf.save(`relatorio-financeiro-${selectedMonth}.pdf`);
             setIsPrinting(false);
-        }).catch(err => {
+        }).catch((err: unknown) => {
             console.error("Erro ao gerar PDF:", err);
             alert("Ocorreu um erro ao gerar o PDF.");
             setIsPrinting(false);
@@ -141,7 +145,7 @@ const FinancialReport: React.FC = () => {
     };
     
     const [year, month] = selectedMonth.split('-').map(Number);
-    const displayDate = new Date(year, month - 1, 1);
+    const displayDate = new Date(Date.UTC(year, month - 1, 1));
     const monthName = displayDate.toLocaleString('pt-BR', { month: 'long', timeZone: 'UTC' });
     const capitalizedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
     const periodText = `${capitalizedMonth} de ${year}`;
@@ -185,6 +189,17 @@ const FinancialReport: React.FC = () => {
                                 {isPrinting ? 'Gerando PDF...' : 'Gerar PDF'}
                             </button>
                         </div>
+                        <div className="self-end">
+                            <label className="flex items-center gap-2 text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={showCpf}
+                                    onChange={(e) => setShowCpf(e.target.checked)}
+                                    className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-pmp-primary focus:ring-pmp-primary-light"
+                                />
+                                Mostrar CPF completo na tela
+                            </label>
+                        </div>
                     </div>
                 </div>
 
@@ -205,7 +220,7 @@ const FinancialReport: React.FC = () => {
                             {reportData.length > 0 ? reportData.map(row => (
                                 <tr key={row.userId} className="hover:bg-pmp-primary/5 dark:hover:bg-dark-pmp-primary/10 transition-colors">
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-pmp-text-primary dark:text-dark-pmp-text-primary">{row.userName}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary">{row.bankingInfo?.cpf || '-'}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary">{showCpf ? (row.bankingInfo?.cpf || '-') : maskCpf(row.bankingInfo?.cpf)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary">{`${row.bankingInfo?.bank || ''}${row.bankingInfo?.variation ? `.${row.bankingInfo.variation}` : ''}`}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary">{row.bankingInfo?.agency || '-'}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary">{row.bankingInfo?.account || '-'}</td>

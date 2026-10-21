@@ -1,7 +1,9 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { SECTOR_CONFIG, SECTOR_ID_MAP } from '../constants';
+import { Sector } from '../types';
+import { getCurrentMonthLocal, getMonthRange, getTodayLocal } from '../utils/date';
 
 interface ReportRecord {
     id: number;
@@ -10,8 +12,15 @@ interface ReportRecord {
     turno: string;
     setor: string;
     falta: string | null;
-    valor_plantao: number;
 }
+
+interface ReportFilters {
+    startDate?: string;
+    endDate?: string;
+    setorId?: number;
+}
+
+const PAGE_SIZE = 1000; // limite de linhas por requisição do Supabase
 
 const getShiftOrder = (shift: string): number => {
     if (shift?.includes('Manhã')) return 1;
@@ -27,63 +36,75 @@ const Reports: React.FC = () => {
     const [selectedSector, setSelectedSector] = useState<string>('all');
     const [isPrinting, setIsPrinting] = useState(false);
     const [filterType, setFilterType] = useState<'range' | 'month'>('month');
-    const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+    const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthLocal());
     const [loading, setLoading] = useState(false);
+
+    // Garante que só a resposta da busca mais recente atualiza a tela
+    const latestRequest = useRef(0);
 
     const inputClass = "mt-1 block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm focus:border-pmp-primary focus:ring-2 focus:ring-pmp-primary/20 sm:text-sm py-2.5 px-3 transition-all outline-none hover:border-slate-400 dark:hover:border-slate-500";
 
-    const fetchData = async (filters?: { startDate?: string, endDate?: string, setorId?: number }) => {
+    const fetchData = async (filters?: ReportFilters) => {
+        const requestId = ++latestRequest.current;
         setLoading(true);
         try {
-            console.log('📥 Buscando relatório do Supabase com filtros:', filters);
+            // Busca em páginas: o Supabase devolve no máximo 1000 linhas por requisição
+            // (sem isso, relatórios grandes ficavam cortados sem aviso)
+            const data: any[] = [];
+            for (let from = 0; ; from += PAGE_SIZE) {
+                let query = supabase
+                    .from('ponto_juju2')
+                    .select('id, data_dia, turno, falta, user_id, setor_id');
 
-            let query = supabase
-                .from('ponto_juju2')
-                .select(`
-                    id,
-                    data_dia,
-                    turno,
-                    falta,
-                    valor_plantao,
-                    user_id,
-                    setor_id
-                `);
+                // Aplicar filtros de data
+                if (filters?.startDate) {
+                    query = query.gte('data_dia', filters.startDate);
+                }
+                if (filters?.endDate) {
+                    query = query.lte('data_dia', filters.endDate);
+                }
+                // Aplicar filtro de setor
+                if (filters?.setorId) {
+                    query = query.eq('setor_id', filters.setorId);
+                }
 
-            // Aplicar filtros de data
-            if (filters?.startDate) {
-                query = query.gte('data_dia', filters.startDate);
-            }
-            if (filters?.endDate) {
-                query = query.lte('data_dia', filters.endDate);
-            }
-            // Aplicar filtro de setor
-            if (filters?.setorId) {
-                query = query.eq('setor_id', filters.setorId);
-            }
+                const { data: page, error } = await query
+                    .order('data_dia', { ascending: true })
+                    .order('id', { ascending: true })
+                    .range(from, from + PAGE_SIZE - 1);
 
-            const { data, error } = await query.order('data_dia', { ascending: true });
+                if (requestId !== latestRequest.current) return;
 
-            if (error) {
-                console.error('❌ Erro ao buscar relatório:', error);
-                setAllRecords([]);
-                return;
+                if (error) {
+                    console.error('Erro ao buscar relatório:', error);
+                    setAllRecords([]);
+                    return;
+                }
+
+                data.push(...(page || []));
+                if (!page || page.length < PAGE_SIZE) break;
             }
 
             // Buscar nomes de médicos e setores separadamente
-            const userIds = [...new Set((data || []).map(r => r.user_id))];
-            const setorIds = [...new Set((data || []).map(r => r.setor_id))];
+            const userIds = [...new Set(data.map(r => r.user_id))];
+            const setorIds = [...new Set(data.map(r => r.setor_id))];
 
-            const { data: medicos } = await supabase
-                .from('medicos_juju')
-                .select('user_id, medico')
-                .in('user_id', userIds);
+            const [{ data: medicos }, { data: usuarios }, { data: setores }] = await Promise.all([
+                supabase.from('medicos_juju').select('user_id, medico').in('user_id', userIds),
+                supabase.from('usuarios').select('user_id, nome').in('user_id', userIds),
+                supabase.from('setor_juju').select('id, nome_setor').in('id', setorIds),
+            ]);
 
-            const { data: setores } = await supabase
-                .from('setor_juju')
-                .select('id, nome_setor')
-                .in('id', setorIds);
+            if (requestId !== latestRequest.current) return;
 
-            const medicoMap = new Map((medicos || []).map(m => [m.user_id, m.medico]));
+            // Mesmo critério da tela de plantões: medicos_juju primeiro, usuarios como alternativa
+            const medicoMap = new Map<string, string>();
+            (medicos || []).forEach(m => {
+                if (m.user_id && m.medico) medicoMap.set(m.user_id, m.medico);
+            });
+            (usuarios || []).forEach(u => {
+                if (u.user_id && u.nome && !medicoMap.has(u.user_id)) medicoMap.set(u.user_id, u.nome);
+            });
             const setorMap = new Map((setores || []).map(s => [s.id, s.nome_setor]));
 
             // Mapear dados para o formato esperado
@@ -93,8 +114,7 @@ const Reports: React.FC = () => {
                 usuario_nome: medicoMap.get(record.user_id) || 'Desconhecido',
                 turno: record.turno,
                 setor: setorMap.get(record.setor_id) || 'Sem setor',
-                falta: record.falta,
-                valor_plantao: record.valor_plantao || 0
+                falta: record.falta
             }));
 
             // Ordenar por data (crescente) e depois por turno (Manhã → Tarde → Noite)
@@ -113,66 +133,54 @@ const Reports: React.FC = () => {
                 return a.usuario_nome.localeCompare(b.usuario_nome);
             });
 
-            console.log('✅ Relatório carregado:', mappedRecords.length, 'registros');
             setAllRecords(mappedRecords);
         } catch (err) {
-            console.error('❌ Erro geral:', err);
+            if (requestId !== latestRequest.current) return;
+            console.error('Erro geral ao carregar relatório:', err);
             setAllRecords([]);
         } finally {
-            setLoading(false);
+            if (requestId === latestRequest.current) setLoading(false);
         }
     };
 
-    useEffect(() => {
-        fetchData();
-    }, []);
-
-    const handleSearch = async () => {
-        console.log('🔎 handleSearch chamado!');
-        console.log('filterType:', filterType);
-        console.log('selectedMonth:', selectedMonth);
-        console.log('startDate:', startDate);
-        console.log('endDate:', endDate);
-        console.log('selectedSector:', selectedSector);
-
-        let filters: { startDate?: string; endDate?: string; setorId?: number } = {};
+    // Monta os filtros a partir do que está selecionado na tela
+    const buildFilters = (): ReportFilters => {
+        const filters: ReportFilters = {};
 
         // Filtros de data
         if (filterType === 'month' && selectedMonth) {
-            const [year, month] = selectedMonth.split('-').map(Number);
-            // Primeiro dia do mês
-            const firstDay = new Date(year, month - 1, 1);
-            // Último dia do mês (dia 0 do próximo mês = último dia do mês atual)
-            const lastDay = new Date(year, month, 0);
-            
-            filters.startDate = firstDay.toISOString().split('T')[0];
-            filters.endDate = lastDay.toISOString().split('T')[0];
-            console.log('✅ Filtro de mês aplicado:', filters);
+            const { start, end } = getMonthRange(selectedMonth);
+            filters.startDate = start;
+            filters.endDate = end;
         } else if (filterType === 'range') {
             filters.startDate = startDate || undefined;
             filters.endDate = endDate || undefined;
-            console.log('✅ Filtro de período aplicado:', filters);
         }
 
         // Filtro de setor
         if (selectedSector !== 'all') {
-            const setorId = SECTOR_ID_MAP[selectedSector as keyof typeof SECTOR_ID_MAP];
-            console.log('🏥 Setor selecionado:', selectedSector, '→ ID:', setorId);
-            filters.setorId = setorId;
+            filters.setorId = SECTOR_ID_MAP[selectedSector as keyof typeof SECTOR_ID_MAP];
         }
 
-        console.log('🔍 Filtros finais que serão passados:', filters);
-        await fetchData(filters);
+        return filters;
+    };
+
+    // Carga inicial já respeita o filtro padrão (mês atual), igual ao que o cabeçalho mostra
+    useEffect(() => {
+        fetchData(buildFilters());
+    }, []);
+
+    const handleSearch = async () => {
+        await fetchData(buildFilters());
     };
 
     const handlePrint = async () => {
         // Primeiro, busca os dados com os filtros atuais
         await handleSearch();
         
-        // @ts-ignore
-        const { jsPDF } = window.jspdf;
-        // @ts-ignore
-        const html2canvas = window.html2canvas;
+        // As bibliotecas vêm de CDN; se não carregarem, avisa em vez de quebrar
+        const jsPDF = (window as any).jspdf?.jsPDF;
+        const html2canvas = (window as any).html2canvas;
 
         if (!jsPDF || !html2canvas) {
             alert('Erro ao carregar bibliotecas de PDF. Tente novamente.');
@@ -195,7 +203,7 @@ const Reports: React.FC = () => {
                 logging: false,
                 allowTaint: true,
                 windowWidth: 1200,
-                onclone: (document) => {
+                onclone: (document: Document) => {
                     document.documentElement.classList.remove('dark');
                     const filters = document.querySelector('.report-filters');
                     if (filters) (filters as HTMLElement).style.display = 'none';
@@ -219,13 +227,13 @@ const Reports: React.FC = () => {
                     }
                     // Forçar mostrar TODAS as colunas no PDF (incluindo Turno)
                     const hiddenElements = document.querySelectorAll('.hidden, .sm\\:table-cell');
-                    hiddenElements.forEach(el => {
+                    hiddenElements.forEach((el: Element) => {
                         (el as HTMLElement).style.display = 'table-cell';
                         (el as HTMLElement).classList.remove('hidden');
                     });
                     // Ajustar padding das células e remover truncate
                     const cells = document.querySelectorAll('th, td');
-                    cells.forEach(cell => {
+                    cells.forEach((cell: Element) => {
                         (cell as HTMLElement).style.padding = '3px 4px';
                         (cell as HTMLElement).style.whiteSpace = 'nowrap';
                         (cell as HTMLElement).style.maxWidth = 'none';
@@ -235,12 +243,12 @@ const Reports: React.FC = () => {
                     });
                     // Ajustar badges de status
                     const badges = document.querySelectorAll('.inline-flex');
-                    badges.forEach(badge => {
+                    badges.forEach((badge: Element) => {
                         (badge as HTMLElement).style.fontSize = '6px';
                         (badge as HTMLElement).style.padding = '2px 4px';
                     });
                 }
-            }).then(canvas => {
+            }).then((canvas: HTMLCanvasElement) => {
                 const imgData = canvas.toDataURL('image/png');
                 const pdf = new jsPDF('l', 'mm', 'a4');
                 const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -272,11 +280,11 @@ const Reports: React.FC = () => {
                     }
                 }
 
-                const fileName = `relatorio-pontos-${new Date().toISOString().slice(0, 10)}.pdf`;
+                const fileName = `relatorio-pontos-${getTodayLocal()}.pdf`;
                 pdf.save(fileName);
                 
                 setIsPrinting(false);
-            }).catch(err => {
+            }).catch((err: Error) => {
                 console.error("Erro ao gerar PDF:", err);
                 alert("Ocorreu um erro ao gerar o PDF: " + err.message);
                 setIsPrinting(false);

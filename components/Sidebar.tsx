@@ -1,5 +1,6 @@
 
 import React from 'react';
+import LogoIcon from './LogoIcon';
 import { User, View } from '../types';
 
 interface SidebarProps {
@@ -71,9 +72,7 @@ const Sidebar: React.FC<SidebarProps> = ({ user, currentView, setCurrentView, is
         <div className="h-full px-3 py-4 overflow-y-auto flex flex-col">
             <div className="flex items-center pl-2.5 mb-5 h-16 border-b border-gray-200 dark:border-gray-700 -mx-3 px-6">
                 <div className="flex-shrink-0 text-pmp-primary dark:text-dark-pmp-primary text-xl font-extrabold flex items-center gap-3">
-                 <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
-                </svg>
+                 <LogoIcon className="h-7 w-7" />
                 Ponto Kids
               </div>
             </div>
@@ -148,7 +147,7 @@ const Sidebar: React.FC<SidebarProps> = ({ user, currentView, setCurrentView, is
                   <NavLink 
                     isActive={currentView === 'admin'} 
                     onClick={() => handleNavClick('admin')}
-                    label="👩‍💼 Admin"
+                    label="Admin"
                     icon={<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
                   />
                 )}
@@ -285,7 +284,7 @@ const Sidebar: React.FC<SidebarProps> = ({ user, currentView, setCurrentView, is
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <span className="font-medium text-sm">👩‍💼 Admin</span>
+                  <span className="font-medium text-sm">Admin</span>
                 </button>
               </div>
             </>

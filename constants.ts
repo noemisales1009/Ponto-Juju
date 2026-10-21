@@ -17,6 +17,12 @@ export const SECTOR_CONFIG: Record<Sector, SectorConfig> = {
 };
 
 /**
+ * Setores temporariamente desativados: aparecem na tela de seleção,
+ * mas não podem ser abertos. Remova o setor da lista para reativá-lo.
+ */
+export const DISABLED_SECTORS: Sector[] = ['Semi 1'];
+
+/**
  * Mapa de setores para seus IDs no banco de dados
  */
 export const SECTOR_ID_MAP: Record<Sector, number> = {
@@ -82,4 +88,16 @@ export const getSectorSlots = (sector: Sector, shift: Shift, dateStr: string): n
   return SECTOR_CONFIG[sector].slots;
 };
 
-export const SHIFT_PAY_RATE = 500; // Mock value in BRL
+/**
+ * Indica se o turno salvo no banco pertence ao turno curto do app.
+ * Ex.: "Quinta noite (19h - 07h)" e "Noite Semana (19h - 07h)" pertencem a "Noite".
+ */
+export const matchesShift = (recordTurno: string | null | undefined, shift: Shift): boolean => {
+  if (!recordTurno) return false;
+  const variations = SHIFT_FULL_NAME_MAP[shift] || [shift];
+  return variations.includes(recordTurno) || recordTurno.toLowerCase().includes(shift.toLowerCase());
+};
+
+/** Converte o turno salvo no banco ("Manhã Semana (07h - 13h)") para o nome curto do app ("Manhã"). */
+export const getShortShift = (recordTurno: string | null | undefined): Shift | undefined =>
+  (Object.keys(SHIFT_FULL_NAME_MAP) as Shift[]).find(shift => matchesShift(recordTurno, shift));

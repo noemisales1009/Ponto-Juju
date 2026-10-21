@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { User, Sector, Shift, ClockRecord } from '../types';
+import { User, Sector, Shift, PontoRow } from '../types';
+import { formatDateBR } from '../utils/date';
 
 interface AbsenceModalProps {
     isOpen: boolean;
@@ -9,20 +10,20 @@ interface AbsenceModalProps {
     shift: Shift;
     date: string;
     users: User[];
-    existingRecords: ClockRecord[];
+    existingRecords: PontoRow[];
 }
 
 const AbsenceModal: React.FC<AbsenceModalProps> = ({ isOpen, onClose, onSubmit, sector, shift, date, users, existingRecords }) => {
     const [selectedUserId, setSelectedUserId] = useState<string>('');
 
-    // Extrair nomes dos registros existentes com falta
+    // Nomes dos registros existentes que já são falta
     const usersWithAbsence = existingRecords
         .filter(rec => rec.falta === 'Sim')
-        .map(rec => rec.medico || rec.user_id);
+        .map(rec => rec.medico || 'Desconhecido');
 
     // Filtra usuários que já têm ponto ou falta batido no dia/turno
-    const availableUsers = users.filter(user => 
-        !existingRecords.some(rec => String(rec.user_id) === String(user.id) || String(rec.userId) === String(user.id))
+    const availableUsers = users.filter(user =>
+        !existingRecords.some(rec => String(rec.user_id) === String(user.id))
     );
 
     useEffect(() => {
@@ -32,14 +33,13 @@ const AbsenceModal: React.FC<AbsenceModalProps> = ({ isOpen, onClose, onSubmit, 
             setSelectedUserId('');
         }
     }, [isOpen, users, existingRecords]);
-    
+
     if (!isOpen) return null;
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (selectedUserId) {
-            const selectedUser = users.find(u => String(u.id) === selectedUserId);
-            console.log('📋 Registrando falta para:', { userId: selectedUserId, userName: selectedUser?.name });
+        // Só aceita um médico que realmente está na lista de disponíveis
+        if (selectedUserId && availableUsers.some(u => String(u.id) === selectedUserId)) {
             onSubmit(selectedUserId);
         }
     };
@@ -49,18 +49,18 @@ const AbsenceModal: React.FC<AbsenceModalProps> = ({ isOpen, onClose, onSubmit, 
             <div className="bg-pmp-surface dark:bg-dark-pmp-surface rounded-2xl shadow-xl w-full max-w-md p-6 sm:p-8 transform transition-all">
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-2xl font-bold text-pmp-text-primary dark:text-dark-pmp-text-primary">Registrar Falta</h2>
-                    <button onClick={onClose} className="text-pmp-text-secondary dark:text-dark-pmp-text-secondary hover:text-pmp-primary dark:hover:text-dark-pmp-primary p-1 rounded-full">
+                    <button onClick={onClose} className="text-pmp-text-secondary dark:text-dark-pmp-text-secondary hover:text-pmp-primary dark:hover:text-dark-pmp-primary p-1 rounded-full" aria-label="Fechar">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
-                
+
                 <div className="mb-6 space-y-2 text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary">
                     <p><strong>Setor:</strong> {sector}</p>
                     <p><strong>Turno:</strong> {shift}</p>
-                    <p><strong>Data:</strong> {new Date(date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</p>
+                    <p><strong>Data:</strong> {formatDateBR(date)}</p>
                 </div>
 
-                {/* ✅ NOVO: Mostrar quem já tem falta registrada */}
+                {/* Mostrar quem já tem falta registrada */}
                 {usersWithAbsence.length > 0 && (
                     <div className="mb-4 p-3 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-lg">
                         <p className="text-sm font-medium text-red-800 dark:text-red-300">
@@ -106,9 +106,9 @@ const AbsenceModal: React.FC<AbsenceModalProps> = ({ isOpen, onClose, onSubmit, 
                         <button type="button" onClick={onClose} className="py-2 px-4 rounded-md text-sm font-medium text-pmp-text-secondary dark:text-dark-pmp-text-secondary bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 transition-colors">
                             Cancelar
                         </button>
-                        <button 
-                            type="submit" 
-                            disabled={!selectedUserId} 
+                        <button
+                            type="submit"
+                            disabled={!selectedUserId}
                             className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:bg-gray-300 dark:disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors"
                         >
                             Confirmar Falta

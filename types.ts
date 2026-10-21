@@ -29,6 +29,18 @@ export interface AbsenceRecord {
   date: string; // ISO string date
 }
 
+/** Linha da tabela ponto_juju2, com o nome do médico já resolvido pelo app. */
+export interface PontoRow {
+  id: number;
+  user_id: string;
+  created_by?: string | null;
+  data_dia: string;
+  turno: string;
+  setor_id: number;
+  falta?: string | null;
+  medico?: string;
+}
+
 export interface SectorConfig {
   shifts: Shift[];
   slots: number;

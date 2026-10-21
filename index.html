@@ -1,8 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#F8FAFC" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0F172A" media="(prefers-color-scheme: dark)" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Ponto Kids</title>
     <script>
@@ -33,11 +39,11 @@
               'pmp-background': '#F8FAFC', // Slate-50
               'pmp-surface': '#FFFFFF',
               'pmp-primary': {
-                DEFAULT: '#6366F1', // indigo-500
-                'light': '#818CF8', // indigo-400
-                'dark': '#4F46E5', // indigo-600
+                DEFAULT: 'rgb(var(--cor-primaria) / <alpha-value>)',
+                'light': 'rgb(var(--cor-primaria-clara) / <alpha-value>)',
+                'dark': 'rgb(var(--cor-primaria-escura) / <alpha-value>)',
               },
-              'pmp-secondary': '#EC4899', // pink-500
+              'pmp-secondary': 'rgb(var(--cor-secundaria) / <alpha-value>)',
               'pmp-text-primary': '#1E293B', // Slate-800 (Softer than black)
               'pmp-text-secondary': '#64748B', // Slate-500
               'pmp-accent': '#F59E0B', // amber-500,
@@ -47,11 +53,11 @@
                 'pmp-background': '#0F172A', // Slate-900
                 'pmp-surface': '#1E293B', // Slate-800
                 'pmp-primary': {
-                  DEFAULT: '#818CF8', // indigo-400
-                  'light': '#A5B4FC', // indigo-300
-                  'dark': '#6366F1', // indigo-500
+                  DEFAULT: 'rgb(var(--cor-primaria-d) / <alpha-value>)',
+                  'light': 'rgb(var(--cor-primaria-d-clara) / <alpha-value>)',
+                  'dark': 'rgb(var(--cor-primaria-d-escura) / <alpha-value>)',
                 },
-                'pmp-secondary': '#F472B6', // pink-400
+                'pmp-secondary': 'rgb(var(--cor-secundaria-d) / <alpha-value>)',
                 'pmp-text-primary': '#F1F5F9', // Slate-100
                 'pmp-text-secondary': '#94A3B8', // Slate-400
                 'pmp-accent': '#FBBF24', // amber-400,
@@ -72,6 +78,61 @@
         color: #F1F5F9;
       }
       
+      /* ============================================================
+         PALETA DE CORES DO APP  (formato "R G B", sem virgulas)
+         Ativa: VERDE-AZULADO (teal), uma cor só, sem azul misturado.
+         Para trocar, substitua os 8 números abaixo por um dos blocos comentados.
+         claro  = primária | primária clara (foco) | primária escura (hover) | secundária
+         escuro = o mesmo, para o modo escuro
+         ============================================================ */
+      :root {
+        --cor-primaria: 15 118 110;          /* teal-700 */
+        --cor-primaria-clara: 20 184 166;    /* teal-500 */
+        --cor-primaria-escura: 17 94 89;     /* teal-800 */
+        --cor-secundaria: 20 184 166;        /* teal-500 (mesmo tom, sem azul) */
+        --cor-primaria-d: 13 148 136;        /* teal-600 */
+        --cor-primaria-d-clara: 94 234 212;  /* teal-300 */
+        --cor-primaria-d-escura: 15 118 110; /* teal-700 */
+        --cor-secundaria-d: 45 212 191;      /* teal-400 (mesmo tom, sem azul) */
+      }
+      /* AZUL:     claro 29 78 216 | 59 130 246 | 30 64 175 | 6 182 212      escuro 37 99 235 | 147 197 253 | 29 78 216 | 34 211 238
+         VERDE:    claro 21 128 61 | 34 197 94 | 22 101 52 | 20 184 166      escuro 22 163 74 | 134 239 172 | 21 128 61 | 45 212 191
+         LARANJA:  claro 194 65 12 | 249 115 22 | 154 52 18 | 234 179 8      escuro 234 88 12 | 253 186 116 | 194 65 12 | 250 204 21
+         ROSA:     claro 190 24 93 | 236 72 153 | 157 23 77 | 249 115 22     escuro 219 39 119 | 249 168 212 | 190 24 93 | 251 146 60
+         GRAFITE:  claro 51 65 85 | 100 116 139 | 30 41 59 | 14 165 233       escuro 100 116 139 | 203 213 225 | 71 85 105 | 56 189 248 */
+
+      /* O autofill do Chrome pinta o campo de azul/cinza: recolorimos com a cor do campo no tema atual
+         (antes, uma regra forçava TODO campo de texto a ficar branco, inclusive no modo escuro). */
+      :root { --campo-fundo: #ffffff; --campo-texto: #1E293B; }
+      .dark { --campo-fundo: #0F172A; --campo-texto: #F1F5F9; }
+      input:-webkit-autofill,
+      input:-webkit-autofill:hover,
+      input:-webkit-autofill:focus,
+      input:-webkit-autofill:active {
+        -webkit-box-shadow: 0 0 0 1000px var(--campo-fundo) inset !important;
+        -webkit-text-fill-color: var(--campo-texto) !important;
+        caret-color: var(--campo-texto);
+      }
+
+
+      /* Campos de data/mês: o ícone do calendário acompanha o tema (no modo escuro ficava preto sobre fundo escuro).
+         :where() mantém a especificidade zero, então uma classe como [color-scheme:dark] ainda pode sobrescrever. */
+      :where(input[type="date"], input[type="month"]) {
+        color-scheme: light;
+      }
+      :where(.dark) :where(input[type="date"], input[type="month"]) {
+        color-scheme: dark;
+      }
+
+      /* Tela de abertura: aparece assim que a página abre, antes do app carregar (o React a substitui) */
+      .abertura { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; }
+      .abertura-icone { width: 96px; height: 96px; border-radius: 24px; display: flex; align-items: center; justify-content: center;
+        background: linear-gradient(135deg, rgb(var(--cor-primaria)), rgb(var(--cor-secundaria)));
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,.25), 0 8px 10px -6px rgba(0,0,0,.2); animation: abertura-pulso 2s cubic-bezier(.4,0,.6,1) infinite; }
+      .abertura-titulo { font-size: 30px; line-height: 36px; font-weight: 700; letter-spacing: -0.025em; color: #1E293B; }
+      .dark .abertura-titulo { color: #F1F5F9; }
+      @keyframes abertura-pulso { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+
       /* Simple print styles as a fallback for browser's print function (Ctrl+P) */
       @media print {
         body {
@@ -86,23 +147,27 @@
         }
       }
     </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2"
-  }
-}
-</script>
 </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="abertura" role="status" aria-label="Carregando">
+        <div class="abertura-icone">
+          <svg viewBox="0 0 24 24" width="64" height="64" aria-hidden="true">
+            <mask id="abertura-ponteiros"><rect x="-2" y="-2" width="28" height="28" fill="#fff"/><path d="M11 10.4V6.9M11 10.4l2.3 1.5" stroke="#000" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" fill="none"/></mask>
+    <g transform="translate(-0.5 0)">
+      <g fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.8 3.4Q4 3.4 4 6.2V10.4a7 7 0 0 0 14 0V6.2Q18 3.4 15.2 3.4"/><path d="M11 17.4C11 21 14 22.1 16.7 20.5"/></g>
+      <g fill="#fff"><ellipse cx="7.9" cy="3.4" rx="1.9" ry="1.25"/><ellipse cx="14.1" cy="3.4" rx="1.9" ry="1.25"/><g transform="translate(15.8 16) scale(0.3)"><path d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"/></g><circle cx="11" cy="10.4" r="5" mask="url(#abertura-ponteiros)"/></g>
+    </g>
+          </svg>
+        </div>
+        <div class="abertura-titulo">Ponto Kids</div>
+      </div>
+    </div>
     <!-- PDF Generation Libraries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <!-- Integridade (SRI): o navegador recusa o arquivo se o CDN entregar algo diferente do esperado -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" integrity="sha384-fCAW/rDWORTbQXSiB7mOg0QtQ5c+r0f544y6XoKjuVva0nMBlCpNUjiFeG5iMdS3" crossorigin="anonymous"></script>
     
     <script type="module" src="/index.tsx"></script>
   </body>

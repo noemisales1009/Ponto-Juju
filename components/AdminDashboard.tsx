@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { User } from '../types';
+import { escapeHtml, csvCell, PRINT_CSP_META } from '../utils/html';
+import { FinanceTotalsRow, formatBRL, getValorAPagar, getValorTotal } from '../utils/finance';
 
-interface MedicoRelatorio {
+interface MedicoRelatorio extends FinanceTotalsRow {
     user_id: string;
     medico_nome: string;
-    cpf: string;
     banco: string;
     agencia: string;
     conta: string;
@@ -13,8 +14,6 @@ interface MedicoRelatorio {
     nome_mes: string;
     total_plantao_realizados: number;
     total_faltas: number;
-    valor_soma_total: number;
-    total_a_pagar: number;
 }
 
 interface AdminDashboardProps {
@@ -27,6 +26,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
     const [loading, setLoading] = useState(false);
     const [selectedMonth, setSelectedMonth] = useState<string>('');
     const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+
+    // Garante que só a resposta da busca mais recente atualiza a tela
+    const latestRequest = useRef(0);
 
     useEffect(() => {
         fetchRelatorio();
@@ -49,6 +51,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
     };
 
     const fetchRelatorio = async () => {
+        const requestId = ++latestRequest.current;
         setLoading(true);
         try {
             let query = supabase
@@ -56,7 +59,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
                 .select('*');
 
             // Filtrar por ano
-            if (selectedYear) {
+            if (Number.isInteger(selectedYear)) {
                 query = query.eq('ano', selectedYear);
             }
 
@@ -70,16 +73,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
 
             const { data, error } = await query.order('medico_nome', { ascending: true });
 
+            if (requestId !== latestRequest.current) return;
+
             if (error) {
-                console.error('❌ Erro ao buscar relatório:', error);
-                alert(`Erro: ${error.message}`);
+                console.error('Erro ao buscar relatório:', error);
+                alert('Não foi possível carregar o relatório. Tente novamente.');
             } else {
-                setRelatorio(data || []);
+                // Descarta o CPF assim que os dados chegam: esta tela não precisa dele
+                setRelatorio((data || []).map(({ cpf: _cpf, ...row }: any) => row as MedicoRelatorio));
             }
         } catch (err) {
-            console.error('❌ Erro geral:', err);
+            if (requestId !== latestRequest.current) return;
+            console.error('Erro geral ao carregar relatório:', err);
         } finally {
-            setLoading(false);
+            if (requestId === latestRequest.current) setLoading(false);
         }
     };
 
@@ -110,15 +117,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
                 `${m.nome_mes}/${m.ano}`,
                 m.total_plantao_realizados,
                 m.total_faltas,
-                (m.valor_soma_total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-                (m.total_a_pagar || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                formatBRL(getValorTotal(m)),
+                formatBRL(getValorAPagar(m))
             ];
         });
 
-        // Montar CSV
+        // Montar CSV (csvCell escapa aspas e bloqueia fórmulas de planilha)
         const csv = [
-            headers.join(','),
-            ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+            headers.map(csvCell).join(','),
+            ...rows.map(row => row.map(csvCell).join(','))
         ].join('\n');
 
         // Download
@@ -149,6 +156,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
         <html>
         <head>
             <meta charset="UTF-8">
+            ${PRINT_CSP_META}
             <title>Relatório Administrativo</title>
             <style>
                 @page { size: A4 landscape; margin: 20mm 15mm; }
@@ -193,7 +201,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
         </head>
         <body>
             <h1>Relatório Administrativo - Plantões e Faturamento</h1>
-            <h2>Período: ${periodText}</h2>
+            <h2>Período: ${escapeHtml(periodText)}</h2>
             
             <table>
                 <thead>
@@ -212,14 +220,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
                     ${relatorio.map(medico => {
                         return `
                         <tr>
-                            <td>${medico.medico_nome}</td>
-                            <td>${medico.banco || '-'}</td>
-                            <td>${medico.agencia || '-'}</td>
-                            <td>${medico.conta || '-'}</td>
-                            <td class="text-center">${medico.total_plantao_realizados}</td>
-                            <td class="text-center">${medico.total_faltas}</td>
-                            <td class="text-right">${(medico.valor_soma_total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-                            <td class="text-right">${(medico.total_a_pagar || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                            <td>${escapeHtml(medico.medico_nome)}</td>
+                            <td>${escapeHtml(medico.banco || '-')}</td>
+                            <td>${escapeHtml(medico.agencia || '-')}</td>
+                            <td>${escapeHtml(medico.conta || '-')}</td>
+                            <td class="text-center">${escapeHtml(medico.total_plantao_realizados)}</td>
+                            <td class="text-center">${escapeHtml(medico.total_faltas)}</td>
+                            <td class="text-right">${formatBRL(getValorTotal(medico))}</td>
+                            <td class="text-right">${formatBRL(getValorAPagar(medico))}</td>
                         </tr>
                         `;
                     }).join('')}
@@ -241,18 +249,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
         }
     };
 
-    const totalGeral = relatorio.reduce((sum, m) => sum + (m.valor_soma_total || 0), 0);
+    const totalGeral = relatorio.reduce((sum, m) => sum + getValorTotal(m), 0);
     const totalPlantoes = relatorio.reduce((sum, m) => sum + (m.total_plantao_realizados || 0), 0);
     const totalFaltas = relatorio.reduce((sum, m) => sum + (m.total_faltas || 0), 0);
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 dark:from-slate-950 to-slate-100 dark:to-slate-900 p-6">
+        <div>
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-8">
                     <div>
                         <h1 className="text-3xl font-bold text-pmp-text-primary dark:text-white mb-2">
-                            👩‍💼 Painel Administrativo
+                            Painel Administrativo
                         </h1>
                         <p className="text-pmp-text-secondary dark:text-gray-400">
                             Relatório de Plantões e Faturamento
@@ -278,8 +286,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
                             </label>
                             <input
                                 type="number"
-                                value={selectedYear}
-                                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                                value={Number.isNaN(selectedYear) ? '' : selectedYear}
+                                onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
                                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-pmp-primary"
                             />
                         </div>
@@ -313,7 +321,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
                             <button
                                 onClick={exportarPDF}
                                 disabled={loading || relatorio.length === 0}
-                                className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg transition-colors font-medium"
+                                className="w-full px-4 py-2 bg-pmp-primary hover:bg-pmp-primary-dark disabled:bg-gray-400 text-white rounded-lg transition-colors font-medium"
                             >
                                 📄 Exportar PDF
                             </button>
@@ -323,9 +331,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
 
                 {/* Resumo */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-                    <div className="bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-xl p-4">
-                        <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">Total Plantões</p>
-                        <p className="text-2xl md:text-xl lg:text-2xl font-bold text-blue-900 dark:text-blue-100">{totalPlantoes}</p>
+                    <div className="bg-teal-50 dark:bg-teal-500/10 border border-teal-200 dark:border-teal-500/30 rounded-xl p-4">
+                        <p className="text-sm text-teal-600 dark:text-teal-400 font-medium">Total Plantões</p>
+                        <p className="text-2xl md:text-xl lg:text-2xl font-bold text-teal-900 dark:text-teal-100">{totalPlantoes}</p>
                     </div>
 
                     <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-xl p-4">
@@ -340,9 +348,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
                         </p>
                     </div>
 
-                    <div className="bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/30 rounded-xl p-4">
-                        <p className="text-sm text-purple-600 dark:text-purple-400 font-medium">Médicos Ativos</p>
-                        <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">{relatorio.length}</p>
+                    <div className="bg-slate-50 dark:bg-slate-500/10 border border-slate-200 dark:border-slate-500/30 rounded-xl p-4">
+                        <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">Médicos Ativos</p>
+                        <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{relatorio.length}</p>
                     </div>
                 </div>
 
@@ -397,10 +405,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-sm font-semibold text-right text-gray-600 dark:text-gray-400">
-                                                {(medico.valor_soma_total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                {formatBRL(getValorTotal(medico))}
                                             </td>
                                             <td className="px-6 py-4 text-sm font-bold text-right text-green-600 dark:text-green-400">
-                                                {(medico.total_a_pagar || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                {formatBRL(getValorAPagar(medico))}
                                             </td>
                                         </tr>
                                         );

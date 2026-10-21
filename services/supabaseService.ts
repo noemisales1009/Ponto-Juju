@@ -2,94 +2,59 @@
 import { supabase } from './supabaseClient';
 import { User } from '../types';
 
-// Tipos baseados no Schema SQL fornecido
-
-export interface MedicoJuju {
-  id: number;
-  medico: string; // Nome do médico
-  user_id: string; // UUID
-  banco?: string;
-  agencia?: string;
-  variacao?: string;
-  cpf?: string;
-  conta?: string;
-}
-
-export interface PontoJuju2 {
-  id: number;
-  data_dia: string; // Date
-  turno: string;
-  user_id: string;
-  setor_id: number;
-  falta?: string;
-  created_at: string;
-}
-
-export interface SetorJuju {
-  id: number;
-  nome_setor: string;
-}
-
-export interface UsuarioJuju {
-    user_id: string;
-    nome: string;
-    email: string;
-    foto?: string;
-}
+const NAME_MIN_LENGTH = 2;
+const NAME_MAX_LENGTH = 100;
+const PHOTO_MAX_LENGTH = 700_000; // ~500 KB de imagem em base64
+const PHOTO_DATA_URL_PATTERN = /^data:image\/(png|jpe?g|webp);base64,/;
 
 // --- Authentication Functions ---
 
-export const signIn = async (email: string, password: string): Promise<User> => {
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-    });
+// Monta o perfil do app a partir do usuário do Auth, buscando só as colunas necessárias.
+const buildUser = async (authUser: { id: string; email?: string | null }): Promise<User> => {
+    const email = authUser.email ?? '';
+    const fallbackName = email.split('@')[0];
 
-    if (authError) {
-        throw new Error(authError.message);
-    }
-
-    if (!authData.user) {
-        throw new Error("Usuário não encontrado após login.");
-    }
-
-    // Tenta buscar detalhes do usuário na tabela public.usuarios
-    const { data: userData, error: userError } = await supabase
+    const { data: userData } = await supabase
         .from('usuarios')
-        .select('*')
-        .eq('user_id', authData.user.id)
-        .single();
+        .select('nome, email, foto')
+        .eq('user_id', authUser.id)
+        .maybeSingle();
 
     if (userData) {
         return {
-            id: authData.user.id, // Usando UUID do Auth como ID principal
-            name: userData.nome || email.split('@')[0],
+            id: authUser.id, // UUID do Auth é o ID principal
+            name: userData.nome || fallbackName,
             email: userData.email || email,
-            photoUrl: userData.foto
+            photoUrl: userData.foto ?? undefined,
         };
     }
-    
-    // Fallback: Tenta buscar na tabela medicos_juju se usuarios falhar
+
+    // Fallback: tenta medicos_juju se não houver perfil em usuarios
     const { data: medicoData } = await supabase
         .from('medicos_juju')
-        .select('*')
-        .eq('user_id', authData.user.id)
-        .single();
-        
-    if (medicoData) {
-        return {
-             id: authData.user.id,
-             name: medicoData.medico || email.split('@')[0],
-             email: authData.user.email || email,
-        }
+        .select('medico')
+        .eq('user_id', authUser.id)
+        .maybeSingle();
+
+    return {
+        id: authUser.id,
+        name: medicoData?.medico || fallbackName,
+        email,
+    };
+};
+
+export const signIn = async (email: string, password: string): Promise<User> => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+        throw new Error(error.message);
     }
 
-    // Se não tiver perfil no banco, retorna dados básicos do Auth
-    return {
-        id: authData.user.id,
-        name: email.split('@')[0],
-        email: email,
-    };
+    if (!data.user) {
+        throw new Error('Usuário não encontrado após login.');
+    }
+
+    return buildUser(data.user);
 };
 
 export const signOut = async () => {
@@ -103,122 +68,58 @@ export const getCurrentUser = async (): Promise<User | null> => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) return null;
 
-    // Tenta buscar perfil completo
-    const { data: userData } = await supabase
-        .from('usuarios')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .single();
-
-    if (userData) {
-         return {
-            id: session.user.id,
-            name: userData.nome || session.user.email!.split('@')[0],
-            email: userData.email || session.user.email!,
-            photoUrl: userData.foto
-        };
-    }
-
-     // Fallback Medicos
-    const { data: medicoData } = await supabase
-        .from('medicos_juju')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .single();
-
-    if(medicoData) {
-         return {
-            id: session.user.id,
-            name: medicoData.medico,
-            email: session.user.email!
-        }
-    }
-
-    return {
-        id: session.user.id,
-        name: session.user.email!.split('@')[0],
-        email: session.user.email!,
-    };
+    return buildUser(session.user);
 };
 
 export const updateUserProfile = async (userId: string, updates: { name?: string; photoUrl?: string }) => {
-    const dbUpdates: any = {};
-    
-    // Mapeia os campos do frontend para o banco de dados (usuarios)
-    if (updates.name) dbUpdates.nome = updates.name;
-    if (updates.photoUrl) dbUpdates.foto = updates.photoUrl;
+    // Só o próprio usuário logado pode alterar o próprio perfil
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user || session.user.id !== userId) {
+        throw new Error('Sessão inválida.');
+    }
 
-    // Atualiza tabela usuarios
+    const dbUpdates: { nome?: string; foto?: string } = {};
+
+    if (updates.name !== undefined) {
+        const name = updates.name.trim();
+        if (name.length < NAME_MIN_LENGTH || name.length > NAME_MAX_LENGTH) {
+            throw new Error(`O nome deve ter entre ${NAME_MIN_LENGTH} e ${NAME_MAX_LENGTH} caracteres.`);
+        }
+        dbUpdates.nome = name;
+    }
+
+    if (updates.photoUrl !== undefined) {
+        if (!PHOTO_DATA_URL_PATTERN.test(updates.photoUrl) || updates.photoUrl.length > PHOTO_MAX_LENGTH) {
+            throw new Error('Foto inválida. Use PNG, JPG ou WebP de até 500 KB.');
+        }
+        dbUpdates.foto = updates.photoUrl;
+    }
+
+    if (Object.keys(dbUpdates).length === 0) return;
+
+    // .select() é necessário: se a RLS bloquear, o Supabase não retorna erro, apenas 0 linhas
     const { data, error } = await supabase
         .from('usuarios')
         .update(dbUpdates)
         .eq('user_id', userId)
-        .select();
+        .select('user_id');
 
     if (error) {
-        throw new Error(error.message);
+        throw error;
+    }
+    if (!data || data.length === 0) {
+        throw new Error('Nenhum registro foi atualizado.');
     }
 
-    // Opcional: Tenta atualizar tabela medicos_juju também se o nome mudou, para manter consistência
-    if (updates.name) {
-        await supabase
+    // Mantém o nome consistente em medicos_juju (usado nos relatórios)
+    if (dbUpdates.nome) {
+        const { error: medicoError } = await supabase
             .from('medicos_juju')
-            .update({ medico: updates.name })
+            .update({ medico: dbUpdates.nome })
             .eq('user_id', userId);
+
+        if (medicoError) {
+            console.error('Erro ao sincronizar nome em medicos_juju:', medicoError);
+        }
     }
-
-    return data;
-};
-
-
-// --- Data Fetching Functions ---
-
-// Buscar lista de médicos
-export const fetchMedicos = async (): Promise<MedicoJuju[]> => {
-  const { data, error } = await supabase
-    .from('medicos_juju')
-    .select('*')
-    .order('medico', { ascending: true });
-
-  if (error) {
-    console.error('Erro ao buscar médicos:', error);
-    return [];
-  }
-  return data as MedicoJuju[];
-};
-
-// Buscar pontos registrados
-export const fetchPontos = async (startDate?: string, endDate?: string): Promise<PontoJuju2[]> => {
-  let query = supabase
-    .from('ponto_juju2')
-    .select('*')
-    .order('data_dia', { ascending: false });
-
-  if (startDate) {
-    query = query.gte('data_dia', startDate);
-  }
-  if (endDate) {
-    query = query.lte('data_dia', endDate);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.error('Erro ao buscar pontos:', error);
-    return [];
-  }
-  return data as PontoJuju2[];
-};
-
-// Buscar setores
-export const fetchSetores = async (): Promise<SetorJuju[]> => {
-  const { data, error } = await supabase
-    .from('setor_juju')
-    .select('*');
-
-  if (error) {
-    console.error('Erro ao buscar setores:', error);
-    return [];
-  }
-  return data as SetorJuju[];
 };

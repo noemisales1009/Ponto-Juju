@@ -1,16 +1,11 @@
 import React, { useState, useEffect } from 'react';
-
-interface PontoRecord {
-    id: number;
-    data_dia: string;
-    turno: string;
-    falta: string | boolean | null;
-    medico?: string;
-}
+import { PontoRow } from '../types';
+import { getShortShift } from '../constants';
+import { isValidDateISO } from '../utils/date';
 
 interface EditPontoModalProps {
     isOpen: boolean;
-    ponto: PontoRecord | null;
+    ponto: PontoRow | null;
     onClose: () => void;
     onSave: (pontoId: number, updates: { data_dia?: string; turno?: string; falta?: string | null }) => Promise<void>;
 }
@@ -33,8 +28,9 @@ const EditPontoModal: React.FC<EditPontoModalProps> = ({ isOpen, ponto, onClose,
         if (ponto) {
             setFormData({
                 data_dia: ponto.data_dia,
-                turno: ponto.turno,
-                falta: ponto.falta === 'Sim' || ponto.falta === true
+                // O banco guarda o turno com nome longo ("Manhã Semana (07h - 13h)"); o select usa o nome curto
+                turno: getShortShift(ponto.turno) ?? '',
+                falta: ponto.falta === 'Sim'
             });
             setError('');
         }
@@ -46,8 +42,8 @@ const EditPontoModal: React.FC<EditPontoModalProps> = ({ isOpen, ponto, onClose,
         setError('');
         
         // Validações
-        if (!formData.data_dia) {
-            setError('Data é obrigatória');
+        if (!isValidDateISO(formData.data_dia)) {
+            setError('Informe uma data válida');
             return;
         }
         if (!formData.turno) {
@@ -89,7 +85,7 @@ const EditPontoModal: React.FC<EditPontoModalProps> = ({ isOpen, ponto, onClose,
                     {/* Header */}
                     <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
                         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                            ✏️ Editar Ponto
+                            Editar Ponto
                         </h2>
                         <button
                             onClick={handleCancel}
@@ -104,7 +100,7 @@ const EditPontoModal: React.FC<EditPontoModalProps> = ({ isOpen, ponto, onClose,
                         {/* Exibir nome do profissional */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                👤 Profissional
+                                Profissional
                             </label>
                             <div className="text-base font-medium text-gray-900 dark:text-white">
                                 {ponto.medico || 'Desconhecido'}
@@ -114,7 +110,7 @@ const EditPontoModal: React.FC<EditPontoModalProps> = ({ isOpen, ponto, onClose,
                         {/* Data */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                📅 Data
+                                Data
                             </label>
                             <input
                                 type="date"
@@ -129,7 +125,7 @@ const EditPontoModal: React.FC<EditPontoModalProps> = ({ isOpen, ponto, onClose,
                         {/* Turno */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                ⏰ Turno
+                                Turno
                             </label>
                             <select
                                 value={formData.turno}
@@ -156,7 +152,7 @@ const EditPontoModal: React.FC<EditPontoModalProps> = ({ isOpen, ponto, onClose,
                                            border-gray-300 dark:border-gray-600 focus:ring-pmp-primary"
                             />
                             <label htmlFor="falta" className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                                ❌ Registrar como Falta
+                                Registrar como falta
                             </label>
                         </div>
 
@@ -186,7 +182,7 @@ const EditPontoModal: React.FC<EditPontoModalProps> = ({ isOpen, ponto, onClose,
                                        hover:bg-pmp-primary-dark dark:hover:bg-dark-pmp-primary-dark 
                                        disabled:opacity-50 disabled:cursor-not-allowed rounded-md transition-colors"
                         >
-                            {isSaving ? '💾 Salvando...' : '✅ Salvar'}
+                            {isSaving ? 'Salvando...' : 'Salvar'}
                         </button>
                     </div>
                 </div>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import LogoIcon from './LogoIcon';
 
 interface LoginScreenProps {
   onLogin: (email: string, password_cleartext: string) => Promise<boolean>;
@@ -21,15 +22,13 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, error }) => {
 
   return (
     <div className="flex items-center justify-center min-h-screen p-4">
-      <div className="w-full max-w-md p-8 space-y-8 bg-pmp-surface rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700/30">
+      <div className="w-full max-w-md p-8 space-y-8 bg-pmp-surface dark:bg-dark-pmp-surface rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700/50">
         <div className="text-center">
             <div className="w-20 h-20 mx-auto bg-gradient-to-br from-pmp-primary to-pmp-secondary rounded-full flex items-center justify-center shadow-lg">
-                 <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                 <LogoIcon className="w-14 h-14 text-white" />
             </div>
-          <h1 className="text-3xl font-bold text-pmp-text-primary mt-6 tracking-tight">Ponto Kids</h1>
-          <p className="mt-2 text-sm text-pmp-text-secondary">
+          <h1 className="text-3xl font-bold text-pmp-text-primary dark:text-dark-pmp-text-primary mt-6 tracking-tight">Ponto Kids</h1>
+          <p className="mt-2 text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary">
             Bem-vindo. Por favor, insira seu e-mail e senha.
           </p>
         </div>
@@ -45,7 +44,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, error }) => {
                 type="email"
                 autoComplete="email"
                 required
-                className="relative block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-blue-50 dark:bg-gray-700/50 placeholder-gray-500 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-pmp-primary focus:border-pmp-primary focus:z-10 sm:text-sm disabled:opacity-50 transition-colors"
+                className="relative block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 placeholder-gray-400 dark:placeholder-gray-500 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-pmp-primary focus:border-pmp-primary focus:z-10 sm:text-sm disabled:opacity-50 transition-colors"
                 placeholder="Endereço de e-mail"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -62,7 +61,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, error }) => {
                 type="password"
                 autoComplete="current-password"
                 required
-                className="relative block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700/50 placeholder-gray-500 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-pmp-primary focus:border-pmp-primary focus:z-10 sm:text-sm disabled:opacity-50 transition-colors"
+                className="relative block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 placeholder-gray-400 dark:placeholder-gray-500 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-pmp-primary focus:border-pmp-primary focus:z-10 sm:text-sm disabled:opacity-50 transition-colors"
                 placeholder="Senha"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
