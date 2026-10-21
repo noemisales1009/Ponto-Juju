@@ -198,13 +198,6 @@ const ShiftCard: React.FC<{
 };
 
 
-// Largura e colunas conforme a quantidade de turnos do setor (no celular é sempre 1 coluna)
-const SHIFT_GRID: Record<number, string> = {
-    1: 'max-w-md',
-    2: 'max-w-3xl lg:grid-cols-2',
-    3: 'max-w-6xl lg:grid-cols-3',
-};
-
 interface SectorDashboardProps {
     sector: Sector;
     currentUser: User;
@@ -496,7 +489,7 @@ const SectorDashboard: React.FC<SectorDashboardProps> = ({ sector, currentUser, 
                         <p className="text-pmp-text-secondary dark:text-dark-pmp-text-secondary">Carregando dados...</p>
                     </div>
                 ) : (
-                    <div className={`mx-auto grid grid-cols-1 gap-4 items-start ${SHIFT_GRID[sectorConfig.shifts.length] ?? SHIFT_GRID[3]}`}>
+                    <div className="mx-auto max-w-md space-y-4">
                         {sectorConfig.shifts.map(shift => (
                             <ShiftCard
                                 key={`${sector}-${shift}`}
