@@ -1,3 +1,8 @@
+-- NÃO APLICADO EM PRODUÇÃO: este arquivo acrescenta o ramo 'Quinta noite (19h - 07h)' e o valor de reserva
+-- 1800 para a quinta à noite (UTI). O banco usa a versão sem esse ramo (ver sql/criar_funcao_trigger_ponto.sql).
+-- NÃO execute sem decidir mudar o cálculo: o nome 'Quinta noite' pode não existir em periodo_juju
+-- e o valor cairia nos valores fixos de reserva.
+
 -- ============================================
 -- APAGAR FUNÇÃO E TRIGGER ANTERIOR
 -- ============================================

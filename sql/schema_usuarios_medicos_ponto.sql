@@ -1,3 +1,6 @@
+-- OBSOLETO (tabela ponto_juju2): a definição real está em sql/criar_tabela_ponto_juju2.sql.
+-- Esta versão tem a restrição antiga unique_ponto_user_dia e não tem created_by. NÃO execute a parte de ponto_juju2.
+
 -- ============================================
 -- TABELA: public.usuarios
 -- ============================================

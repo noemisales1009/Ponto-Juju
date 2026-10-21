@@ -1,3 +1,7 @@
+-- NOTA: confere com as views em produção (v_ganhos_usuario sem ORDER BY).
+-- Em produção, v_ganhos_mensais_usuario deve receber o filtro por usuário de sql/ETAPA_1_seguranca.sql.
+-- Diferença de regra a conhecer: aqui o valor ausente vira 0; em nova_total_por_medico_mes (Financeiro) vira 500,00.
+
 -- ============================================
 -- VIEW OTIMIZADA PARA GANHOS/EARNINGS
 -- ============================================
@@ -29,8 +33,7 @@ FROM public.ponto_juju2 p
 LEFT JOIN public.medicos_juju m ON p.user_id = m.user_id
 LEFT JOIN public.setor_juju s ON p.setor_id = s.id
 LEFT JOIN public.periodo_juju per ON p.periodo_id = per.id
-WHERE p.falta IS NULL  -- Importante: Ignora as faltas para não pagar o que não foi trabalhado
-ORDER BY p.data_dia DESC;
+WHERE p.falta IS NULL;  -- Importante: ignora as faltas para não pagar o que não foi trabalhado
 
 
 -- ============================================

@@ -1,3 +1,7 @@
+-- OBSOLETO: NÃO EXECUTE. Este arquivo define a mesma view (nova_total_por_medico_mes) de forma diferente
+-- da que está em produção e depende de v_ponto_detalhado2_nova. A definição real está em
+-- sql/criar_view_nova_total_por_medico_mes.sql.
+
 -- ============================================
 -- VIEW: RELATÓRIO MENSAL POR MÉDICO
 -- com valores zerando em caso de FALTA

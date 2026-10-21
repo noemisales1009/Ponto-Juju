@@ -1,3 +1,5 @@
+-- EQUIVALE À VERSÃO EM PRODUÇÃO (conferido contra o banco). Referência: sql/criar_funcao_trigger_ponto.sql
+
 -- ============================================
 -- APAGAR FUNÇÃO E TRIGGER ANTERIOR
 -- ============================================

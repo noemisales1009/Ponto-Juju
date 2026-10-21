@@ -1,3 +1,7 @@
+-- OBSOLETO: NÃO EXECUTE. Insere em setor_juju(setor, ativo), colunas que não existem no banco real
+-- (a tabela tem apenas id, created_at e nome_setor) e usa nomes de setor diferentes dos do app.
+-- Estrutura real: ver sql/criar_tabela_*.sql.
+
 -- ============================================
 -- INSERIR DADOS COMPLETOS AUTOMATICAMENTE
 -- ============================================
