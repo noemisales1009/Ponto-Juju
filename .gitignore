@@ -24,3 +24,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Android: APK e chaves de assinatura nunca vao para o Git
+*.apk
+*.p12
+*.jks
+*.keystore
+*.p12.b64

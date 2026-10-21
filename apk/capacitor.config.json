@@ -1,0 +1,12 @@
+{
+  "appId": "br.com.noemisales.pontokids",
+  "appName": "Ponto Kids",
+  "webDir": "www",
+  "backgroundColor": "#0f766e",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

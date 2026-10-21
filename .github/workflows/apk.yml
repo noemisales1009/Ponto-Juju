@@ -1,0 +1,136 @@
+# Gera o aplicativo Android (APK) do Ponto Kids. Só roda quando alguém clica em
+# Actions > "Gerar APK" > Run workflow (não roda sozinho a cada commit).
+# O APK não é guardado no GitHub: fica como arquivo temporário (1 dia) só para ser baixado para
+# o PC e depois apagado. A chave de assinatura e as chaves do Supabase vêm dos segredos do
+# repositório (Settings > Secrets and variables > Actions), nunca do código:
+#   APK_KEYSTORE_B64, APK_KEYSTORE_SENHA, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
+name: Gerar APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gerar-apk
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Baixar o projeto
+        uses: actions/checkout@v4
+
+      - name: Conferir os segredos
+        env:
+          KS_B64: ${{ secrets.APK_KEYSTORE_B64 }}
+          KS_SENHA: ${{ secrets.APK_KEYSTORE_SENHA }}
+          SUPA_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPA_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          faltando=""
+          [ -z "$KS_B64" ] && faltando="$faltando APK_KEYSTORE_B64"
+          [ -z "$KS_SENHA" ] && faltando="$faltando APK_KEYSTORE_SENHA"
+          [ -z "$SUPA_URL" ] && faltando="$faltando VITE_SUPABASE_URL"
+          [ -z "$SUPA_KEY" ] && faltando="$faltando VITE_SUPABASE_ANON_KEY"
+          if [ -n "$faltando" ]; then
+            echo "::error::Faltam os segredos:$faltando (Settings > Secrets and variables > Actions > New repository secret)."
+            exit 1
+          fi
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apk/package-lock.json
+
+      - name: Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Instalar o app
+        run: npm ci
+
+      - name: Compilar o app
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      - name: Instalar Capacitor
+        working-directory: apk
+        run: npm ci
+
+      - name: Montar a pasta www com o app compilado
+        working-directory: apk
+        run: node scripts/preparar-www.js
+
+      - name: Criar o projeto Android
+        working-directory: apk
+        run: npx cap add android
+
+      - name: Versão, cache e barras do sistema
+        working-directory: apk
+        run: node scripts/personalizar-android.js
+        env:
+          NUMERO: ${{ github.run_number }}
+
+      - name: Gerar ícones e tela de abertura
+        working-directory: apk
+        run: >
+          npx capacitor-assets generate --android
+          --iconBackgroundColor "#0F766E" --iconBackgroundColorDark "#0F766E"
+          --splashBackgroundColor "#0F766E" --splashBackgroundColorDark "#0F766E"
+
+      - name: Sincronizar
+        working-directory: apk
+        run: npx cap sync android
+
+      - name: Compilar o APK
+        working-directory: apk/android
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Chave de assinatura (vem dos segredos do repositório, nunca do código)
+        working-directory: apk
+        env:
+          KS_B64: ${{ secrets.APK_KEYSTORE_B64 }}
+        run: |
+          mkdir -p keystore
+          echo "$KS_B64" | base64 -d > keystore/assinatura.p12
+
+      - name: Alinhar e assinar
+        working-directory: apk
+        env:
+          KS_SENHA: ${{ secrets.APK_KEYSTORE_SENHA }}
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          echo "build-tools: $BT"
+          "$BT/zipalign" -f -p 4 android/app/build/outputs/apk/release/app-release-unsigned.apk alinhado.apk
+          "$BT/apksigner" sign --min-sdk-version 23 \
+            --ks keystore/assinatura.p12 --ks-type PKCS12 --ks-key-alias ponto-kids \
+            --ks-pass env:KS_SENHA --key-pass env:KS_SENHA \
+            --out ponto-kids.apk alinhado.apk
+          "$BT/apksigner" verify --verbose --print-certs ponto-kids.apk | head -12
+          rm -f keystore/assinatura.p12 alinhado.apk
+
+      - name: Conferir o arquivo
+        working-directory: apk
+        run: |
+          ls -la ponto-kids.apk
+          unzip -l ponto-kids.apk | grep -E "assets/public/index.html" || (echo "faltam arquivos do app no APK" && exit 1)
+
+      - name: Guardar o APK por 1 dia (para baixar para o PC)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ponto-kids-apk
+          path: apk/ponto-kids.apk
+          retention-days: 1
+          if-no-files-found: error
