@@ -20,8 +20,8 @@
 --     (a permissão por coluna de sql/ETAPA_1_seguranca.sql impede isso)
 --   * Qualquer UPDATE em um ponto antigo (editar data, turno ou falta) RECALCULA o valor com a
 --     tabela de preços ATUAL: se o preço mudou depois, o plantão antigo é reprecificado.
---   * Não existe ramo "Quinta noite": quinta à noite é "Noite Semana (19h - 07h)".
---     O arquivo atualizar_trigger_quinta_noite.sql NÃO está aplicado em produção.
+--   * Não existe ramo "Quinta noite": quinta à noite é "Noite Semana (19h - 07h)" (Seg-Qui = R$ 1900 na UTI).
+--     É a versão de sql/atualizar_trigger_quinta_noite.sql (commit de 21/07/2026, Quinta unificada).
 --   * Comentário e código divergem no setor 2: o comentário diz "Quinta-Domingo noite = 1900",
 --     mas o código só dá 1900 para sexta, sábado e domingo (quinta = 1800). Só vale se não houver
 --     linha correspondente em periodo_juju.

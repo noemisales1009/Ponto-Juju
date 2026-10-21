@@ -1,7 +1,5 @@
--- NÃO APLICADO EM PRODUÇÃO: este arquivo acrescenta o ramo 'Quinta noite (19h - 07h)' e o valor de reserva
--- 1800 para a quinta à noite (UTI). O banco usa a versão sem esse ramo (ver sql/criar_funcao_trigger_ponto.sql).
--- NÃO execute sem decidir mudar o cálculo: o nome 'Quinta noite' pode não existir em periodo_juju
--- e o valor cairia nos valores fixos de reserva.
+-- APLICADO EM PRODUÇÃO (commit de 21/07/2026): 'Quinta noite' foi unificada a 'Noite Semana (19h - 07h)' e o
+-- período separado de Quinta foi removido de periodo_juju. É a versão que está no banco; ver sql/criar_funcao_trigger_ponto.sql.
 
 -- ============================================
 -- APAGAR FUNÇÃO E TRIGGER ANTERIOR
@@ -80,8 +78,6 @@ BEGIN
     IF v_eh_noturno THEN
         IF v_dia_semana = 'Sexta' THEN
             v_turno_normalizado := 'Sexta noite (19h - 07h)';
-        ELSIF v_dia_semana = 'Quinta' THEN
-            v_turno_normalizado := 'Quinta noite (19h - 07h)';
         ELSIF v_dia_semana IN ('Sábado','Domingo') THEN
             v_turno_normalizado := 'Noite Final de Semana (19h - 07h)';
         ELSE
@@ -144,11 +140,10 @@ BEGIN
     -- Setor 3 (UTI Ped)
     IF NEW.setor_id = 3 THEN
         IF v_eh_noturno THEN
-            NEW.valor_plantao := CASE 
-                WHEN v_dia_num = 4 THEN 1800  -- Quinta noite
+            NEW.valor_plantao := CASE
                 WHEN v_dia_num = 5 THEN 2000  -- Sexta noite
                 WHEN v_dia_num IN (6,7) THEN 2400  -- Sábado-Domingo noite
-                ELSE 1900  -- Segunda a Quarta noite
+                ELSE 1900  -- Segunda a Quinta noite
             END;
         ELSE
             NEW.valor_plantao := CASE 
@@ -182,8 +177,25 @@ $$ LANGUAGE plpgsql;
 -- CRIAR NOVO TRIGGER
 -- ============================================
 
-CREATE TRIGGER trg_ponto_completo_juju 
-BEFORE INSERT OR UPDATE 
-ON ponto_juju2 
+CREATE TRIGGER trg_ponto_completo_juju
+BEFORE INSERT OR UPDATE
+ON ponto_juju2
 FOR EACH ROW
 EXECUTE FUNCTION fn_ponto_total_automatizado();
+
+
+-- ============================================
+-- AJUSTAR TABELA periodo_juju:
+-- noite de semana do setor 3 (PED) passa a ser
+-- Segunda a Quinta, e o período separado de
+-- Quinta é removido
+-- ============================================
+
+UPDATE periodo_juju
+SET dias = 'Segunda - Quinta'
+WHERE setor_id = 3
+  AND periodo ILIKE '%noite%semana%';
+
+DELETE FROM periodo_juju
+WHERE setor_id = 3
+  AND periodo ILIKE '%quinta%noite%';

@@ -1,4 +1,4 @@
--- EQUIVALE À VERSÃO EM PRODUÇÃO (conferido contra o banco). Referência: sql/criar_funcao_trigger_ponto.sql
+-- OBSOLETO: versão antiga do trigger (tinha 'Quinta noite' só no texto). A versão em produção é sql/atualizar_trigger_quinta_noite.sql.
 
 -- ============================================
 -- APAGAR FUNÇÃO E TRIGGER ANTERIOR
