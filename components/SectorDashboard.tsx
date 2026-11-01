@@ -3,8 +3,9 @@ import { User, Sector, Shift, PontoRow } from '../types';
 import { SECTOR_CONFIG, getSectorSlots, SECTOR_ID_MAP, matchesShift } from '../constants';
 import { registrarPonto } from '../src/services/pontoService';
 import { supabase } from '../services/supabaseClient';
-import { getTodayLocal, isValidDateISO, toDbTimestamp } from '../utils/date';
+import { formatMinutes, formatTimeBR, getTodayLocal, isValidDateISO, toDbTimestamp } from '../utils/date';
 import { friendlyError } from '../utils/errors';
+import { formatBRL } from '../utils/finance';
 import AbsenceModal from './AbsenceModal';
 import EditPontoModal from './EditPontoModal';
 
@@ -90,6 +91,7 @@ const ShiftCard: React.FC<{
     const isFull = totalFilled >= slots;
     const hasClockedIn = shiftPresences.some(r => String(r.user_id) === String(currentUser.id));
     const hasAbsence = shiftAbsences.some(r => String(r.user_id) === String(currentUser.id));
+    const isToday = selectedDate === getTodayLocal();
 
     const canEditRecord = (rec: PontoRow) => String(rec.created_by) === String(currentUser.id) || isAdmin;
 
@@ -123,7 +125,13 @@ const ShiftCard: React.FC<{
             );
 
             if (resultado.sucesso) {
-                alert(`✅ Ponto batido com sucesso!`);
+                const { batido_em, minutos_atraso, desconto_atraso } = resultado.dados ?? {};
+                const desconto = Number(desconto_atraso);
+                alert(desconto > 0
+                    ? `⚠️ Ponto batido às ${formatTimeBR(batido_em)}, com ${formatMinutes(minutos_atraso)} de atraso. Desconto de ${formatBRL(desconto)} no plantão.`
+                    : batido_em
+                        ? `✅ Ponto batido às ${formatTimeBR(batido_em)}, dentro do prazo de tolerância.`
+                        : `✅ Ponto batido com sucesso!`);
                 onUpdate();
             } else {
                 alert(`❌ ${resultado.erro}`);
@@ -175,11 +183,11 @@ const ShiftCard: React.FC<{
             <div className="mt-4 flex items-center gap-2">
                 <button
                     onClick={handleClockIn}
-                    disabled={isFull || hasClockedIn || hasAbsence || isSaving}
+                    disabled={isFull || hasClockedIn || hasAbsence || isSaving || !isToday}
                     className="flex-1 py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-pmp-primary dark:bg-dark-pmp-primary hover:bg-pmp-primary-dark dark:hover:bg-dark-pmp-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pmp-primary-light disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:text-gray-500 dark:disabled:text-gray-400 disabled:cursor-not-allowed transition-colors shadow-sm"
                     title={hasClockedIn ? `Ponto batido por ${currentUser.name}` : ''}
                 >
-                    {isSaving ? 'Registrando...' : hasClockedIn ? `✓ ${currentUser.name}` : hasAbsence ? 'Falta Registrada' : 'Bater Ponto'}
+                    {isSaving ? 'Registrando...' : hasClockedIn ? `✓ ${currentUser.name}` : hasAbsence ? 'Falta Registrada' : isToday ? 'Bater Ponto' : 'Só na data de hoje'}
                 </button>
                 <button
                     onClick={onRegisterAbsence}
@@ -461,7 +469,7 @@ const SectorDashboard: React.FC<SectorDashboardProps> = ({ sector, currentUser, 
                 </div>
                  <div>
                     <label htmlFor="shift-date" className="block text-sm font-medium text-pmp-text-secondary dark:text-dark-pmp-text-secondary mb-1">
-                        Selecione a data para bater o ponto
+                        Data do plantão
                     </label>
                     <div className="flex items-center gap-3">
                         <input

@@ -26,7 +26,7 @@ const NavLink: React.FC<{
     const desktopInactive = "text-pmp-text-secondary dark:text-dark-pmp-text-secondary hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-pmp-text-primary dark:hover:text-dark-pmp-text-primary";
 
     // Classes para Mobile Bottom Nav
-    const mobileBase = "flex flex-col items-center justify-center flex-1 py-2 px-1 transition-colors relative";
+    const mobileBase = "flex flex-col items-center justify-center flex-1 min-w-0 py-2 px-1 transition-colors relative";
     const mobileActive = "text-pmp-primary dark:text-dark-pmp-primary-light";
     const mobileInactive = "text-pmp-text-secondary dark:text-dark-pmp-text-secondary";
 
@@ -45,16 +45,19 @@ const NavLink: React.FC<{
                 onClick={onClick} 
                 className={`lg:hidden ${mobileBase} ${isActive ? mobileActive : mobileInactive} ${desktopOnly ? 'hidden' : ''}`}
             >
-                {isActive && (
-                    <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-pmp-primary dark:bg-dark-pmp-primary rounded-b-full"></span>
-                )}
-                {React.cloneElement(icon, { className: "w-6 h-6 mb-1" })}
-                <span className="text-[10px] font-medium truncate w-full text-center">{label}</span>
+                {/* O ícone sobe para dentro da bolha; o delay deixa ela chegar antes de ele ficar branco */}
+                <span className={`mb-1 transition-[transform,color] duration-300 ease-in-out motion-reduce:transition-none ${isActive ? '-translate-y-3 text-white delay-[250ms]' : ''}`}>
+                    {React.cloneElement(icon, { className: "w-6 h-6" })}
+                </span>
+                <span className="text-[10px] font-medium whitespace-nowrap">{label}</span>
             </button>
         </>
     );
 };
 
+
+// Abas da barra inferior, na mesma ordem em que aparecem nela
+const MOBILE_TABS: View[] = ['dashboard', 'my-records', 'earnings', 'reports', 'profile'];
 
 const Sidebar: React.FC<SidebarProps> = ({ user, currentView, setCurrentView, isOpen, setIsOpen, isAdmin = false }) => {
     const [showAdminMenu, setShowAdminMenu] = React.useState(false);
@@ -126,6 +129,13 @@ const Sidebar: React.FC<SidebarProps> = ({ user, currentView, setCurrentView, is
                       icon={<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0m-9.75 0h6" /></svg>}
                     />
                     <NavLink
+                      isActive={currentView === 'late-report'}
+                      onClick={() => handleNavClick('late-report')}
+                      label="Atrasos"
+                      desktopOnly
+                      icon={<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>}
+                    />
+                    <NavLink
                       isActive={currentView === 'absence-distribution'}
                       onClick={() => handleNavClick('absence-distribution')}
                       label="Distribuição"
@@ -157,6 +167,15 @@ const Sidebar: React.FC<SidebarProps> = ({ user, currentView, setCurrentView, is
 
       {/* Mobile/Tablet Bottom Navigation Bar */}
       <nav className="fixed bottom-0 left-0 z-50 w-full h-16 bg-pmp-surface/90 dark:bg-dark-pmp-surface/90 backdrop-blur-lg border-t border-gray-200 dark:border-gray-700 lg:hidden flex items-center justify-around px-2 no-print safe-area-bottom">
+          {/* Bolha da aba ativa: cada 100% anda uma aba. Em telas fora da barra (índice -1) ela sai pela esquerda. */}
+          <div className="absolute inset-y-0 inset-x-2 pointer-events-none">
+            <div
+              className="h-full w-1/5 flex justify-center transition-transform duration-500 ease-in-out will-change-transform motion-reduce:transition-none"
+              style={{ transform: `translateX(${MOBILE_TABS.indexOf(currentView) * 100}%)` }}
+            >
+              <span className="-mt-3 w-11 h-11 rounded-full bg-pmp-primary dark:bg-dark-pmp-primary shadow-lg ring-4 ring-pmp-primary/20 dark:ring-dark-pmp-primary/25"></span>
+            </div>
+          </div>
           <NavLink 
             isActive={currentView === 'dashboard'} 
             onClick={() => handleNavClick('dashboard')}
@@ -260,6 +279,20 @@ const Sidebar: React.FC<SidebarProps> = ({ user, currentView, setCurrentView, is
                 </button>
                 
                 <button
+                  onClick={() => handleNavClick('late-report')}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg transition-all hover:scale-105 ${
+                    currentView === 'late-report'
+                      ? 'bg-pmp-primary text-white'
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200'
+                  }`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                  </svg>
+                  <span className="font-medium text-sm">Atrasos</span>
+                </button>
+
+                <button
                   onClick={() => handleNavClick('absence-distribution')}
                   className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg transition-all hover:scale-105 ${
                     currentView === 'absence-distribution'
@@ -294,7 +327,7 @@ const Sidebar: React.FC<SidebarProps> = ({ user, currentView, setCurrentView, is
           <button
             onClick={() => setShowAdminMenu(!showAdminMenu)}
             className={`lg:hidden fixed bottom-20 right-4 z-50 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 ease-out hover:scale-110 active:scale-95 no-print ${
-              showAdminMenu || ['staffing', 'financial', 'management', 'reports', 'admin', 'absence-distribution'].includes(currentView)
+              showAdminMenu || ['staffing', 'financial', 'management', 'reports', 'admin', 'absence-distribution', 'late-report'].includes(currentView)
                 ? 'bg-gradient-to-br from-pmp-primary to-pmp-primary-dark text-white ring-4 ring-pmp-primary/30' 
                 : 'bg-gradient-to-br from-gray-700 to-gray-800 text-white hover:from-pmp-primary hover:to-pmp-primary-dark'
             }`}

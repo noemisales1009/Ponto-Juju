@@ -4,6 +4,8 @@
 //  2) MainActivity: limpa o cache do WebView quando o app é atualizado e reserva, direto no
 //     Android, o espaço da barra de status/navegação e do entalhe (o Android 15+ desenha o
 //     app por baixo delas, sem opção de sair disso).
+//  3) Permissões de GPS: o Capacitor já repassa o pedido de localização do WebView ao Android,
+//     mas o manifesto gerado só declara INTERNET. Sem elas, nenhum médico consegue bater ponto.
 // A assinatura é feita depois, com apksigner (veja .github/workflows/apk.yml).
 const fs = require('fs');
 const path = require('path');
@@ -11,8 +13,9 @@ const path = require('path');
 const raiz = path.join(__dirname, '..', 'android');
 const gradle = path.join(raiz, 'app', 'build.gradle');
 const activity = path.join(raiz, 'app', 'src', 'main', 'java', 'br', 'com', 'noemisales', 'pontokids', 'MainActivity.java');
+const manifesto = path.join(raiz, 'app', 'src', 'main', 'AndroidManifest.xml');
 
-for (const arq of [gradle, activity]) {
+for (const arq of [gradle, activity, manifesto]) {
   if (!fs.existsSync(arq)) {
     console.error(`${arq} não existe. Rode "npx cap add android" antes.`);
     process.exit(1);
@@ -100,4 +103,15 @@ public class MainActivity extends BridgeActivity {
 `;
 fs.writeFileSync(activity, conteudo, 'utf8');
 
-console.log(`personalizar-android: versionCode ${codigo}, versionName 1.0.${numero}; MainActivity atualizado.`);
+// 3) permissões de GPS
+let m = fs.readFileSync(manifesto, 'utf8');
+if (!m.includes('ACCESS_FINE_LOCATION')) {
+  const permissoes =
+    '    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n' +
+    '    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n';
+  m = m.replace('</manifest>', permissoes + '</manifest>');
+  if (!m.includes('ACCESS_FINE_LOCATION')) { console.error('personalizar-android: não achei o fim do AndroidManifest.xml'); process.exit(1); }
+  fs.writeFileSync(manifesto, m, 'utf8');
+}
+
+console.log(`personalizar-android: versionCode ${codigo}, versionName 1.0.${numero}; MainActivity e permissões de GPS atualizados.`);

@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useDeferredValue } from 'react';
 import LoginScreen from './components/LoginScreen';
 import SplashScreen from './components/SplashScreen';
 import Dashboard from './components/Dashboard';
@@ -14,13 +14,15 @@ import DataManagement from './components/DataManagement';
 import StaffingReport from './components/StaffingReport';
 import AdminDashboard from './components/AdminDashboard';
 import AbsenceDistribution from './components/AbsenceDistribution';
+import LateReport from './components/LateReport';
+import GpsModal from './components/GpsModal';
 import { User, View } from './types';
 import { signIn, signOut, getCurrentUser, updateUserProfile } from './services/supabaseService';
 import { supabase } from './services/supabaseClient';
 
 // Telas restritas a administradores. Isto só controla a interface:
 // a barreira real de acesso aos dados é a RLS/permissões no Supabase.
-const ADMIN_VIEWS: View[] = ['financial', 'management', 'staffing', 'admin', 'absence-distribution'];
+const ADMIN_VIEWS: View[] = ['financial', 'management', 'staffing', 'admin', 'absence-distribution', 'late-report'];
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -29,6 +31,7 @@ const App: React.FC = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
+  const [isGpsModalOpen, setGpsModalOpen] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window !== 'undefined' && window.localStorage) {
       const storedTheme = window.localStorage.getItem('theme');
@@ -56,6 +59,8 @@ const App: React.FC = () => {
             const user = await getCurrentUser();
             if (user) {
                 setCurrentUser(user);
+                // A sessão fica salva: quem abre o app já logado também precisa ver o pedido do GPS
+                setGpsModalOpen(true);
                 await checkIfAdmin(user.id);
             }
         } catch (err) {
@@ -87,6 +92,7 @@ const App: React.FC = () => {
     try {
         const user = await signIn(email.trim(), password_cleartext);
         setCurrentUser(user);
+        setGpsModalOpen(true);
         await checkIfAdmin(user.id);
         return true;
     } catch (err) {
@@ -103,6 +109,7 @@ const App: React.FC = () => {
     await signOut();
     setCurrentUser(null);
     setIsAdmin(false);
+    setGpsModalOpen(false);
     setCurrentView('dashboard');
   };
 
@@ -120,9 +127,12 @@ const App: React.FC = () => {
     }
   };
 
+  // A tela nova monta depois do toque, para não atrasar a animação da barra inferior
+  const deferredView = useDeferredValue(currentView);
+
   const MainContent = useMemo(() => {
     // Quem não é admin nunca renderiza telas administrativas
-    const view: View = ADMIN_VIEWS.includes(currentView) && !isAdmin ? 'dashboard' : currentView;
+    const view: View = ADMIN_VIEWS.includes(deferredView) && !isAdmin ? 'dashboard' : deferredView;
 
     switch (view) {
       case 'dashboard':
@@ -145,10 +155,12 @@ const App: React.FC = () => {
         return <AdminDashboard currentUser={currentUser!} onBack={() => setCurrentView('dashboard')} />;
       case 'absence-distribution':
         return <AbsenceDistribution />;
+      case 'late-report':
+        return <LateReport />;
       default:
         return <Dashboard currentUser={currentUser!} isAdmin={isAdmin} />;
     }
-  }, [currentView, currentUser, isAdmin]);
+  }, [deferredView, currentUser, isAdmin]);
 
   if (checkingSession) {
     return <SplashScreen />;
@@ -185,6 +197,8 @@ const App: React.FC = () => {
           {MainContent}
         </main>
       </div>
+
+      <GpsModal isOpen={isGpsModalOpen} onClose={() => setGpsModalOpen(false)} />
     </div>
   );
 };

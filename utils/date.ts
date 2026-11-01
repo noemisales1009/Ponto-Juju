@@ -33,6 +33,16 @@ export const getMonthRange = (yearMonth: string): { start: string; end: string }
 /** "2026-01-08" -> "08/01/2026" */
 export const formatDateBR = (dateISO: string): string => dateISO.split('-').reverse().join('/');
 
+/** Horário de um timestamp do banco, sempre no fuso do hospital: "2026-11-01T11:30:00Z" -> "08:30" */
+export const formatTimeBR = (timestamp: string): string =>
+  new Date(timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+
+/** 90 -> "1h30", 45 -> "45min" */
+export const formatMinutes = (minutes: number): string => {
+  const hours = Math.floor(minutes / 60);
+  return hours ? `${hours}h${pad(minutes % 60)}` : `${minutes}min`;
+};
+
 /**
  * Timestamp enviado ao banco junto com data_dia. Usa meio-dia UTC para que o trigger
  * (DATE(data)) resulte no mesmo dia independentemente do fuso configurado no banco.

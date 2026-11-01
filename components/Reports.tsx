@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { SECTOR_CONFIG, SECTOR_ID_MAP } from '../constants';
 import { Sector } from '../types';
-import { getCurrentMonthLocal, getMonthRange, getTodayLocal } from '../utils/date';
+import { formatMinutes, formatTimeBR, getCurrentMonthLocal, getMonthRange, getTodayLocal } from '../utils/date';
 
 interface ReportRecord {
     id: number;
@@ -12,6 +12,8 @@ interface ReportRecord {
     turno: string;
     setor: string;
     falta: string | null;
+    batido_em: string | null;
+    atraso: number | null; // minutos, só quando houve desconto (o valor não aparece: todos os médicos veem esta tela)
 }
 
 interface ReportFilters {
@@ -54,7 +56,7 @@ const Reports: React.FC = () => {
             for (let from = 0; ; from += PAGE_SIZE) {
                 let query = supabase
                     .from('ponto_juju2')
-                    .select('id, data_dia, turno, falta, user_id, setor_id');
+                    .select('*');
 
                 // Aplicar filtros de data
                 if (filters?.startDate) {
@@ -114,7 +116,9 @@ const Reports: React.FC = () => {
                 usuario_nome: medicoMap.get(record.user_id) || 'Desconhecido',
                 turno: record.turno,
                 setor: setorMap.get(record.setor_id) || 'Sem setor',
-                falta: record.falta
+                falta: record.falta,
+                batido_em: record.batido_em ?? null,
+                atraso: Number(record.desconto_atraso) > 0 ? record.minutos_atraso : null
             }));
 
             // Ordenar por data (crescente) e depois por turno (Manhã → Tarde → Noite)
@@ -431,6 +435,7 @@ const Reports: React.FC = () => {
                             <th scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-semibold text-pmp-text-secondary dark:text-dark-pmp-text-secondary uppercase tracking-wider">Médico</th>
                             <th scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-semibold text-pmp-text-secondary dark:text-dark-pmp-text-secondary uppercase tracking-wider">Setor</th>
                             <th scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-semibold text-pmp-text-secondary dark:text-dark-pmp-text-secondary uppercase tracking-wider hidden sm:table-cell">Turno</th>
+                            <th scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-semibold text-pmp-text-secondary dark:text-dark-pmp-text-secondary uppercase tracking-wider">Horário</th>
                             <th scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-semibold text-pmp-text-secondary dark:text-dark-pmp-text-secondary uppercase tracking-wider">Status</th>
                         </tr>
                     </thead>
@@ -443,19 +448,24 @@ const Reports: React.FC = () => {
                                 <td className="px-3 sm:px-6 py-4 text-xs sm:text-sm font-medium text-pmp-text-primary dark:text-dark-pmp-text-primary max-w-[120px] sm:max-w-none truncate">{record.usuario_nome}</td>
                                 <td className="px-3 sm:px-6 py-4 text-xs sm:text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary max-w-[80px] sm:max-w-none truncate">{record.setor}</td>
                                 <td className="px-3 sm:px-6 py-4 text-xs sm:text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary hidden sm:table-cell">{record.turno}</td>
+                                <td className="px-3 sm:px-6 py-4 text-xs sm:text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary">
+                                    {record.batido_em ? formatTimeBR(record.batido_em) : '-'}
+                                </td>
                                 <td className="px-3 sm:px-6 py-4 text-xs sm:text-sm">
                                     <span className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium ${
                                         record.falta === 'Sim'
                                         ? 'bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-300'
+                                        : record.atraso
+                                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300'
                                         : 'bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-300'
                                     }`}>
-                                        {record.falta === 'Sim' ? 'Falta' : 'Presente'}
+                                        {record.falta === 'Sim' ? 'Falta' : record.atraso ? `Atraso ${formatMinutes(record.atraso)}` : 'Presente'}
                                     </span>
                                 </td>
                             </tr>
                         )) : (
                             <tr>
-                                <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">Nenhum registro encontrado.</td>
+                                <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">Nenhum registro encontrado.</td>
                             </tr>
                         )}
                     </tbody>

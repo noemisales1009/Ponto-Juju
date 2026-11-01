@@ -1,8 +1,10 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { User } from '../types';
+import { getShortShift } from '../constants';
 import { supabase } from '../services/supabaseClient';
-import { formatDateBR, getCurrentMonthLocal, getTodayLocal } from '../utils/date';
+import { formatDateBR, formatMinutes, formatTimeBR, getCurrentMonthLocal, getTodayLocal } from '../utils/date';
+import { formatBRL } from '../utils/finance';
 
 interface MyRecordsProps {
     currentUser: User;
@@ -30,7 +32,7 @@ const MyRecords: React.FC<MyRecordsProps> = ({ currentUser }) => {
             try {
                 const { data: pontos, error } = await supabase
                     .from('ponto_juju2')
-                    .select('id, data_dia, turno, valor_plantao, falta, dia_semana_calculado')
+                    .select('*')
                     .eq('user_id', currentUser.id)
                     .order('data_dia', { ascending: false });
 
@@ -69,6 +71,12 @@ const MyRecords: React.FC<MyRecordsProps> = ({ currentUser }) => {
             });
         }
     }, [userRecords, filterType, selectedMonth, startDate, endDate]);
+
+    const lateRecords = useMemo(
+        () => filteredRecords.filter(r => r.falta !== 'Sim' && Number(r.desconto_atraso) > 0),
+        [filteredRecords]
+    );
+    const totalDiscount = lateRecords.reduce((total, r) => total + Number(r.desconto_atraso), 0);
 
     const inputClass = "block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm focus:border-pmp-primary focus:ring-2 focus:ring-pmp-primary/20 sm:text-sm py-2.5 px-3 transition-all outline-none";
 
@@ -135,6 +143,31 @@ const MyRecords: React.FC<MyRecordsProps> = ({ currentUser }) => {
                 </div>
             )}
 
+            {!loading && lateRecords.length > 0 && (
+                <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-xl">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mb-3">
+                        <h2 className="text-base font-bold text-amber-800 dark:text-amber-300">
+                            {lateRecords.length === 1 ? '1 atraso neste período' : `${lateRecords.length} atrasos neste período`}
+                        </h2>
+                        <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                            Total descontado: {formatBRL(totalDiscount)}
+                        </span>
+                    </div>
+                    <ul className="divide-y divide-amber-200 dark:divide-amber-500/20">
+                        {lateRecords.map(record => (
+                            <li key={record.id} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 py-2 text-sm">
+                                <span className="font-semibold text-pmp-text-primary dark:text-dark-pmp-text-primary">
+                                    {formatDateBR(record.data_dia)} · {getShortShift(record.turno) ?? record.turno}
+                                </span>
+                                <span className="text-pmp-text-secondary dark:text-dark-pmp-text-secondary">
+                                    Bateu às {record.batido_em ? formatTimeBR(record.batido_em) : '-'}, {formatMinutes(record.minutos_atraso)} de atraso (-{formatBRL(Number(record.desconto_atraso))})
+                                </span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+
             {!loading && (
                 <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700/50">
                     <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
@@ -142,6 +175,7 @@ const MyRecords: React.FC<MyRecordsProps> = ({ currentUser }) => {
                             <tr>
                                 <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-pmp-text-secondary dark:text-dark-pmp-text-secondary uppercase tracking-wider">Data</th>
                                 <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-pmp-text-secondary dark:text-dark-pmp-text-secondary uppercase tracking-wider">Turno</th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-pmp-text-secondary dark:text-dark-pmp-text-secondary uppercase tracking-wider">Horário</th>
                                 <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-pmp-text-secondary dark:text-dark-pmp-text-secondary uppercase tracking-wider">Valor</th>
                                 <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-pmp-text-secondary dark:text-dark-pmp-text-secondary uppercase tracking-wider">Status</th>
                             </tr>
@@ -158,6 +192,9 @@ const MyRecords: React.FC<MyRecordsProps> = ({ currentUser }) => {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-pmp-text-primary dark:text-dark-pmp-text-primary">{record.turno}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary">
+                                        {record.batido_em ? formatTimeBR(record.batido_em) : '-'}
+                                    </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600 dark:text-green-400">
                                         {Number(record.valor_plantao) ? `R$ ${Number(record.valor_plantao).toFixed(2)}` : '-'}
                                     </td>
@@ -166,16 +203,20 @@ const MyRecords: React.FC<MyRecordsProps> = ({ currentUser }) => {
                                             <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-100 dark:bg-red-500/20 text-red-800 dark:text-red-300 text-xs font-medium">
                                                 <span>✗</span> Falta
                                             </span>
+                                        ) : Number(record.desconto_atraso) > 0 ? (
+                                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 text-xs font-medium">
+                                                <span>!</span> Atraso {formatMinutes(record.minutos_atraso)} (-{formatBRL(Number(record.desconto_atraso))})
+                                            </span>
                                         ) : (
                                             <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-green-100 dark:bg-green-500/20 text-green-800 dark:text-green-300 text-xs font-medium">
-                                                <span>✓</span> Ponto
+                                                <span>✓</span> {record.batido_em ? 'Dentro da tolerância' : 'Ponto'}
                                             </span>
                                         )}
                                     </td>
                                 </tr>
                             )) : (
                                 <tr>
-                                    <td colSpan={4} className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">Nenhum registro encontrado para o período selecionado.</td>
+                                    <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">Nenhum registro encontrado para o período selecionado.</td>
                                 </tr>
                             )}
                         </tbody>

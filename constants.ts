@@ -104,3 +104,25 @@ export const matchesShift = (recordTurno: string | null | undefined, shift: Shif
 /** Converte o turno salvo no banco ("Manhã Semana (07h - 13h)") para o nome curto do app ("Manhã"). */
 export const getShortShift = (recordTurno: string | null | undefined): Shift | undefined =>
   (Object.keys(SHIFT_FULL_NAME_MAP) as Shift[]).find(shift => matchesShift(recordTurno, shift));
+
+/**
+ * Hora de início de cada turno. O ponto só pode ser batido na data de hoje, a partir deste horário.
+ * Ao mudar estes valores, mudar também em sql/adicionar_atraso_ponto.sql
+ */
+export const SHIFT_START_HOUR: Record<Shift, number> = {
+  'Manhã': 7,
+  'Tarde': 13,
+  'Noite': 19,
+};
+
+/**
+ * Único local onde o ponto pode ser batido: o GPS precisa indicar uma posição dentro do raio.
+ * Raio: cerca de 55 m do centro até a borda do hospital + folga para o erro do GPS em ambiente fechado.
+ * Ao mudar estes valores, mudar também em sql/adicionar_localizacao_ponto.sql
+ */
+export const LOCAL_PONTO = {
+  nome: 'Hospital Infantil Dr. Juvêncio Mattos',
+  latitude: -2.53614,
+  longitude: -44.297487,
+  raioMetros: 150,
+};
