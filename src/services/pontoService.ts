@@ -1,7 +1,7 @@
 import { supabase } from '../../services/supabaseClient';
 import { LOCAL_PONTO, SECTOR_ID_MAP, SHIFT_FULL_NAME_MAP, SHIFT_START_HOUR, matchesShift } from '../../constants';
 import { Shift } from '../../types';
-import { formatDateBR, formatDateISO, getTodayLocal, isValidDateISO, toDbTimestamp } from '../../utils/date';
+import { formatDateBR, formatDateISO, getTodayLocal, isValidDateISO } from '../../utils/date';
 import { friendlyError } from '../../utils/errors';
 
 const VALID_SHIFTS = Object.keys(SHIFT_FULL_NAME_MAP);
@@ -142,14 +142,13 @@ export const verificarPontoDuplicado = async (
 };
 
 /**
- * 🕐 Registrar ponto com validação automática
+ * 🕐 Registrar o ponto de PRESENÇA do próprio médico (falta é gravada pela tela de Plantões)
  */
 export const registrarPonto = async (
   userId: string | number,
   data: string | Date,
   turno: string,
-  setorId: number,
-  falta?: string
+  setorId: number
 ): Promise<{ sucesso: boolean; erro?: string; dados?: any }> => {
   const dataDia = toDateISO(data);
 
@@ -200,6 +199,11 @@ export const registrarPonto = async (
     };
   }
 
+  // O banco grava sempre no nome de quem está logado
+  if (String(userId) !== currentUser.id) {
+    return { sucesso: false, erro: 'Só é possível bater o próprio ponto.' };
+  }
+
   // ✅ Validação: só bate ponto se o GPS indicar que está no hospital
   const { localizacao, erro: erroLocalizacao } = await obterLocalizacaoNoHospital();
 
@@ -210,23 +214,16 @@ export const registrarPonto = async (
     };
   }
 
-  // Inserir o ponto (o banco fará a validação final)
-  const insertData = {
-    user_id: userId,
-    created_by: currentUser.id,  // ✅ QUEM está registrando o ponto
-    data: toDbTimestamp(dataDia),  // ✅ O trigger deriva data_dia deste campo
-    data_dia: dataDia,
-    turno,
-    setor_id: setorId,
-    falta,
-    turno_preenchido: !falta,
-    ...localizacao,  // ✅ ONDE o ponto foi batido
-  };
-
-  const { data: resultado, error } = await supabase
-    .from('ponto_juju2')
-    .insert(insertData)
-    .select();
+  // A função do banco confere o GPS de novo e grava o ponto e a posição juntos.
+  // A posição fica em ponto_localizacao: só o próprio médico e o admin conseguem ler.
+  const { data: resultado, error } = await supabase.rpc('registrar_presenca', {
+    p_data_dia: dataDia,
+    p_turno: turno,
+    p_setor_id: setorId,
+    p_latitude: localizacao.latitude,
+    p_longitude: localizacao.longitude,
+    p_precisao_metros: localizacao.precisao_metros,
+  });
 
   if (error) {
     console.error('Erro ao registrar ponto:', error);
@@ -238,7 +235,7 @@ export const registrarPonto = async (
 
   return {
     sucesso: true,
-    dados: resultado?.[0],
+    dados: resultado,
   };
 };
 

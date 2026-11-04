@@ -49,8 +49,9 @@ DECLARE
     v_inicio_turno timestamp with time zone;
 BEGIN
     IF TG_OP = 'UPDATE' THEN
-        -- Editar não muda o horário nem o atraso. Só o SQL Editor (sem usuário logado) pode corrigir.
-        IF auth.uid() IS NOT NULL THEN
+        -- Editar pelo app não muda o horário nem o atraso. Podem corrigir: o SQL Editor e as
+        -- funções do banco (ex.: decidir_pedido, ao aprovar uma justificativa de atraso).
+        IF current_user IN ('anon', 'authenticated') THEN
             NEW.batido_em := OLD.batido_em;
             NEW.minutos_atraso := OLD.minutos_atraso;
             NEW.desconto_atraso := OLD.desconto_atraso;
@@ -70,7 +71,9 @@ BEGIN
             END IF;
         END IF;
 
-    ELSIF auth.uid() IS NOT NULL THEN
+    -- Ponto esquecido aprovado pelo admin (função decidir_pedido): entra sem horário e sem desconto
+    ELSIF auth.uid() IS NOT NULL
+          AND current_setting('ponto.pedido_aprovado', true) IS DISTINCT FROM 'sim' THEN
         NEW.batido_em := NULL;
         NEW.minutos_atraso := NULL;
         NEW.desconto_atraso := NULL;

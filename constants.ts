@@ -118,7 +118,7 @@ export const SHIFT_START_HOUR: Record<Shift, number> = {
 /**
  * Único local onde o ponto pode ser batido: o GPS precisa indicar uma posição dentro do raio.
  * Raio: cerca de 55 m do centro até a borda do hospital + folga para o erro do GPS em ambiente fechado.
- * Ao mudar estes valores, mudar também em sql/adicionar_localizacao_ponto.sql
+ * Ao mudar estes valores, mudar também em sql/adicionar_localizacao_ponto.sql (função registrar_presenca)
  */
 export const LOCAL_PONTO = {
   nome: 'Hospital Infantil Dr. Juvêncio Mattos',

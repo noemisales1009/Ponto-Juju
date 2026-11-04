@@ -9,7 +9,7 @@ export interface User {
 
 export type Sector = 'UTI Ped' | 'Semi 2' | 'Semi 1';
 export type Shift = 'Manhã' | 'Tarde' | 'Noite';
-export type View = 'dashboard' | 'reports' | 'earnings' | 'my-records' | 'profile' | 'financial' | 'management' | 'staffing' | 'admin' | 'absence-distribution' | 'late-report';
+export type View = 'dashboard' | 'reports' | 'earnings' | 'my-records' | 'profile' | 'financial' | 'management' | 'staffing' | 'admin' | 'absence-distribution' | 'late-report' | 'requests';
 
 export interface ClockRecord {
   id: number | string;
@@ -43,6 +43,26 @@ export interface PontoRow {
   setor_id: number;
   falta?: string | null;
   medico?: string;
+}
+
+/** Linha da tabela ponto_pedido: justificativa de atraso ou pedido de ponto esquecido. */
+export interface PontoPedido {
+  id: number;
+  tipo: 'atraso' | 'esquecido';
+  user_id: string;
+  ponto_id: number | null;
+  data_dia: string;
+  turno: Shift;
+  setor_id: number;
+  horario: string | null; // "HH:MM:SS"
+  motivo: string;
+  status: 'pendente' | 'aprovado' | 'recusado';
+  minutos_atraso: number | null;
+  desconto_original: number | null;
+  criado_em: string;
+  decidido_por: string | null;
+  decidido_em: string | null;
+  observacao: string | null;
 }
 
 export interface SectorConfig {
