@@ -18,7 +18,8 @@ const Earnings: React.FC<EarningsProps> = ({ currentUser }) => {
     const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthLocal());
     const [monthlyData, setMonthlyData] = useState<MonthlyEarnings | null>(null);
     const [loading, setLoading] = useState(false);
-    const [loadError, setLoadError] = useState(false);
+    const [loadError, setLoadError] = useState<null | 'sessao' | 'conexao'>(null);
+    const [reloadKey, setReloadKey] = useState(0);
 
     useEffect(() => {
         if (!selectedMonth) return;
@@ -28,7 +29,7 @@ const Earnings: React.FC<EarningsProps> = ({ currentUser }) => {
 
         const fetchMonthlyEarnings = async () => {
             setLoading(true);
-            setLoadError(false);
+            setLoadError(null);
             try {
                 const [year, month] = selectedMonth.split('-').map(Number);
 
@@ -44,7 +45,9 @@ const Earnings: React.FC<EarningsProps> = ({ currentUser }) => {
 
                 if (error) {
                     console.error('Erro ao buscar ganhos:', error);
-                    setLoadError(true);
+                    // 42501 = sem permissão: o banco recebeu a consulta sem login válido
+                    const semLogin = error.code === '42501' || /permission denied|JWT/i.test(error.message);
+                    setLoadError(semLogin ? 'sessao' : 'conexao');
                     setMonthlyData({ total_plantoes: 0, total_ganhos: 0, nome_mes: '' });
                 } else {
                     // Sem linha para o mês = nenhum plantão registrado
@@ -53,7 +56,7 @@ const Earnings: React.FC<EarningsProps> = ({ currentUser }) => {
             } catch (err) {
                 if (cancelled) return;
                 console.error('Erro geral ao buscar ganhos:', err);
-                setLoadError(true);
+                setLoadError('conexao');
                 setMonthlyData({ total_plantoes: 0, total_ganhos: 0, nome_mes: '' });
             } finally {
                 if (!cancelled) setLoading(false);
@@ -62,7 +65,7 @@ const Earnings: React.FC<EarningsProps> = ({ currentUser }) => {
 
         fetchMonthlyEarnings();
         return () => { cancelled = true; };
-    }, [currentUser.id, selectedMonth]);
+    }, [currentUser.id, selectedMonth, reloadKey]);
 
     const displayTitle = useMemo(() => {
         const currentMonthISO = getCurrentMonthLocal();
@@ -113,7 +116,20 @@ const Earnings: React.FC<EarningsProps> = ({ currentUser }) => {
 
             {loadError && (
                 <div className="mb-4 p-4 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-lg text-center">
-                    <p className="text-red-700 dark:text-red-400 text-sm font-medium">Não foi possível carregar seus ganhos. Tente novamente.</p>
+                    <p className="text-red-700 dark:text-red-400 text-sm font-medium">
+                        {loadError === 'sessao'
+                            ? 'Sua sessão expirou. Saia do aplicativo e entre novamente para ver seus ganhos.'
+                            : 'Não foi possível carregar seus ganhos. Verifique sua internet.'}
+                    </p>
+                    {loadError === 'conexao' && (
+                        <button
+                            type="button"
+                            onClick={() => setReloadKey(k => k + 1)}
+                            className="mt-3 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors"
+                        >
+                            Tentar novamente
+                        </button>
+                    )}
                 </div>
             )}
 
