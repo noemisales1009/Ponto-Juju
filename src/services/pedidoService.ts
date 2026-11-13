@@ -23,6 +23,22 @@ export const getPrimeiroDiaNoPrazo = (): string => {
 export const estaNoPrazo = (dataDia: string): boolean =>
   dataDia >= getPrimeiroDiaNoPrazo() && dataDia <= getTodayLocal();
 
+/**
+ * Transição para a regra nova: até TRANSICAO_FIM, o ponto esquecido também pode ser pedido para
+ * plantões desde TRANSICAO_INICIO. Depois disso o prazo volta sozinho para PRAZO_PEDIDO_DIAS.
+ * Igual ao banco: sql/ajustar_prazo_ponto_esquecido.sql
+ */
+export const TRANSICAO_INICIO = '2026-09-01';
+export const TRANSICAO_FIM = '2026-11-30';
+
+export const emTransicao = (): boolean => getTodayLocal() <= TRANSICAO_FIM;
+
+/** Primeiro dia aceito no pedido de ponto esquecido, "YYYY-MM-DD" */
+export const getPrimeiroDiaPontoEsquecido = (): string => {
+  const normal = getPrimeiroDiaNoPrazo();
+  return emTransicao() && TRANSICAO_INICIO < normal ? TRANSICAO_INICIO : normal;
+};
+
 type Resultado = { sucesso: true; pedido: PontoPedido } | { sucesso: false; erro: string };
 
 const tratarResposta = (data: unknown, error: { code?: string; message?: string } | null, contexto: string): Resultado => {

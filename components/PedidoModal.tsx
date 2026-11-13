@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Sector, Shift } from '../types';
 import { DISABLED_SECTORS, SECTOR_ID_MAP, getShortShift } from '../constants';
-import { formatDateBR, formatDateISO, formatMinutes } from '../utils/date';
+import { formatDateBR, formatDateISO, formatMinutes, getTodayLocal } from '../utils/date';
 import { formatBRL } from '../utils/finance';
-import { PRAZO_PEDIDO_DIAS, pedirAbonoAtraso, pedirPontoEsquecido } from '../src/services/pedidoService';
+import { PRAZO_PEDIDO_DIAS, TRANSICAO_FIM, emTransicao, getPrimeiroDiaPontoEsquecido, pedirAbonoAtraso, pedirPontoEsquecido } from '../src/services/pedidoService';
 
 /** Ponto com desconto por atraso que o médico quer justificar */
 export interface PontoAtrasado {
@@ -129,6 +129,11 @@ const PedidoModal: React.FC<PedidoModalProps> = ({ isOpen, onClose, onSent, pont
                     <p className="mb-5 text-sm leading-relaxed text-pmp-text-secondary dark:text-dark-pmp-text-secondary">
                         Use quando não conseguiu bater o ponto: esqueceu, o GPS falhou ou chegou na Noite depois da meia-noite.
                         O pedido vale para plantões de até {PRAZO_PEDIDO_DIAS} dias atrás e a administração aprova ou recusa.
+                        {emTransicao() && (
+                            <strong className="block mt-2 text-pmp-text-primary dark:text-dark-pmp-text-primary">
+                                Até {formatDateBR(TRANSICAO_FIM).slice(0, 5)}, você também pode pedir plantões de setembro, outubro e novembro que ficaram sem lançar.
+                            </strong>
+                        )}
                     </p>
                 )}
 
@@ -145,6 +150,22 @@ const PedidoModal: React.FC<PedidoModalProps> = ({ isOpen, onClose, onSent, pont
                                         </button>
                                     ))}
                                 </div>
+                                {emTransicao() && (
+                                    <div className="mt-3">
+                                        <label htmlFor="pedido-outra-data" className="block text-xs font-medium text-pmp-text-secondary dark:text-dark-pmp-text-secondary mb-1">
+                                            Ou escolha outra data, a partir de {formatDateBR(getPrimeiroDiaPontoEsquecido())}
+                                        </label>
+                                        <input
+                                            id="pedido-outra-data"
+                                            type="date"
+                                            value={dataDia}
+                                            min={getPrimeiroDiaPontoEsquecido()}
+                                            max={getTodayLocal()}
+                                            onChange={e => setDataDia(e.target.value)}
+                                            className={fieldClass}
+                                        />
+                                    </div>
+                                )}
                             </div>
 
                             <div>

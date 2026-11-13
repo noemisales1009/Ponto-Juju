@@ -16,7 +16,8 @@ import AdminDashboard from './components/AdminDashboard';
 import AbsenceDistribution from './components/AbsenceDistribution';
 import LateReport from './components/LateReport';
 import GpsModal from './components/GpsModal';
-import WhatsNewModal, { jaViuNovidades, marcarNovidadesVistas } from './components/WhatsNewModal';
+import { GPS_OBRIGATORIO, MOSTRAR_NOVIDADES } from './constants';
+import WhatsNewModal, { conferirNovidades, marcarNovidadesVistas } from './components/WhatsNewModal';
 import { verificarGps } from './src/services/pontoService';
 import Requests from './components/Requests';
 import LocationReport from './components/LocationReport';
@@ -67,8 +68,8 @@ const App: React.FC = () => {
             if (user) {
                 setCurrentUser(user);
                 // A sessão fica salva: quem abre o app já logado também precisa ver o pedido do GPS
-                setGpsModalOpen(true);
-                setNewsOpen(!jaViuNovidades(user.id));
+                setGpsModalOpen(GPS_OBRIGATORIO);
+                if (MOSTRAR_NOVIDADES) conferirNovidades(user.id).then(setNewsOpen);
                 await checkIfAdmin(user.id);
             }
         } catch (err) {
@@ -123,8 +124,8 @@ const App: React.FC = () => {
     try {
         const user = await signIn(email.trim(), password_cleartext);
         setCurrentUser(user);
-        setGpsModalOpen(true);
-        setNewsOpen(!jaViuNovidades(user.id));
+        setGpsModalOpen(GPS_OBRIGATORIO);
+        if (MOSTRAR_NOVIDADES) conferirNovidades(user.id).then(setNewsOpen);
         await checkIfAdmin(user.id);
         return true;
     } catch (err) {
@@ -146,7 +147,7 @@ const App: React.FC = () => {
   // bloqueado, o pedido para ativar aparece outra vez.
   const currentUserId = currentUser?.id;
   useEffect(() => {
-    if (!currentUserId) return;
+    if (!currentUserId || !GPS_OBRIGATORIO) return;
 
     const conferirGps = async () => {
       if (document.visibilityState !== 'visible') return;
@@ -251,7 +252,7 @@ const App: React.FC = () => {
           onMenuClick={() => setSidebarOpen(true)}
           theme={theme}
           setTheme={setTheme}
-          onHelpClick={() => setNewsOpen(true)}
+          onHelpClick={MOSTRAR_NOVIDADES ? () => setNewsOpen(true) : undefined}
         />
         <main className="p-4 sm:p-6 lg:p-8 flex-grow pb-24 lg:pb-8">
           {MainContent}
@@ -260,7 +261,7 @@ const App: React.FC = () => {
 
       {/* As novidades aparecem primeiro; o pedido do GPS vem depois de fechar */}
       <GpsModal isOpen={isGpsModalOpen && !isNewsOpen} onClose={() => setGpsModalOpen(false)} />
-      <WhatsNewModal isOpen={isNewsOpen} onClose={handleCloseNews} />
+      <WhatsNewModal isOpen={isNewsOpen} onClose={handleCloseNews} isAdmin={isAdmin} />
     </div>
   );
 };

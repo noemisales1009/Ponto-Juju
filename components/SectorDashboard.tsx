@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { User, Sector, Shift, PontoRow } from '../types';
-import { SECTOR_CONFIG, getSectorSlots, SECTOR_ID_MAP, SHIFT_START_HOUR, matchesShift } from '../constants';
+import { GPS_OBRIGATORIO, SECTOR_CONFIG, getSectorSlots, SECTOR_ID_MAP, SHIFT_START_HOUR, matchesShift } from '../constants';
 import { registrarPonto } from '../src/services/pontoService';
 import { buscarTrocaPendente, confirmarTroca } from '../src/services/trocaService';
 import { supabase } from '../services/supabaseClient';
@@ -162,7 +162,7 @@ const ShiftCard: React.FC<{
                     : batido_em
                         ? `✅ Ponto batido às ${formatTimeBR(batido_em)}, dentro do prazo de tolerância.`
                         : `✅ Ponto batido com sucesso!`);
-                if (resultado.semGps) {
+                if (resultado.semGps && GPS_OBRIGATORIO) {
                     alert('Atenção: este ponto foi registrado SEM localização, porque o aparelho não liberou o GPS. A administração vê essa informação.');
                 }
                 await confirmarTrocaPendente();

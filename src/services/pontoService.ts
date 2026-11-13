@@ -1,5 +1,5 @@
 import { supabase } from '../../services/supabaseClient';
-import { LOCAL_PONTO, SECTOR_ID_MAP, SHIFT_FULL_NAME_MAP, SHIFT_START_HOUR, matchesShift } from '../../constants';
+import { GPS_OBRIGATORIO, LOCAL_PONTO, SECTOR_ID_MAP, SHIFT_FULL_NAME_MAP, SHIFT_START_HOUR, matchesShift } from '../../constants';
 import { Shift } from '../../types';
 import { formatDateBR, formatDateISO, getTodayLocal, isValidDateISO } from '../../utils/date';
 import { friendlyError } from '../../utils/errors';
@@ -64,7 +64,7 @@ export const verificarGps = (): Promise<{ ativo: boolean; erro?: string }> =>
  */
 // semGps: o aparelho não entregou nenhuma posição (bloqueada, sem sinal, sem suporte).
 // É diferente de estar fora do hospital, que continua sendo recusado.
-type ResultadoLocalizacao = { localizacao?: Localizacao; erro?: string; semGps?: string };
+type ResultadoLocalizacao = { localizacao?: Localizacao; erro?: string; semGps?: string; fora?: boolean };
 
 const MOTIVO_SEM_GPS: Record<number, string> = {
   1: 'Localização bloqueada no aparelho ou no navegador',
@@ -92,7 +92,12 @@ const pedirPosicao = (altaPrecisao: boolean): Promise<ResultadoLocalizacao> =>
           const distanciaTexto = distancia < 1000
             ? `${Math.round(distancia)} m`
             : `${(distancia / 1000).toFixed(1).replace('.', ',')} km`;
-          resolve({ erro: `Você está a ${distanciaTexto} do ${LOCAL_PONTO.nome}. O ponto só pode ser batido no hospital.` });
+          resolve({
+            erro: `Você está a ${distanciaTexto} do ${LOCAL_PONTO.nome}. O ponto só pode ser batido no hospital.`,
+            // GPS não obrigatório: o ponto é aceito e a distância fica registrada para o admin
+            semGps: GPS_OBRIGATORIO ? undefined : `Fora do raio: ${distanciaTexto} do hospital (precisão ${Math.round(coords.accuracy)} m)`,
+            fora: true,
+          });
           return;
         }
 
@@ -111,7 +116,12 @@ const pedirPosicao = (altaPrecisao: boolean): Promise<ResultadoLocalizacao> =>
           semGps: `${MOTIVO_SEM_GPS[erro.code] ?? 'Erro de localização'}${erro.message ? ` (${erro.message})` : ''}`,
         });
       },
-      { enableHighAccuracy: altaPrecisao, timeout: altaPrecisao ? 15000 : 10000, maximumAge: 0 }
+      // Com o GPS não obrigatório a espera é curta: o médico não fica parado esperando o aparelho
+      {
+        enableHighAccuracy: altaPrecisao,
+        timeout: GPS_OBRIGATORIO ? (altaPrecisao ? 15000 : 10000) : (altaPrecisao ? 8000 : 5000),
+        maximumAge: 0,
+      }
     );
   });
 
@@ -122,7 +132,7 @@ const pedirPosicao = (altaPrecisao: boolean): Promise<ResultadoLocalizacao> =>
  */
 const obterLocalizacaoNoHospital = async (): Promise<ResultadoLocalizacao> => {
   const primeira = await pedirPosicao(true);
-  if (!primeira.semGps || !navigator.geolocation) return primeira;
+  if (!primeira.semGps || primeira.fora || !navigator.geolocation) return primeira;
 
   const segunda = await pedirPosicao(false);
   return segunda.semGps ? { ...segunda, semGps: primeira.semGps } : segunda;

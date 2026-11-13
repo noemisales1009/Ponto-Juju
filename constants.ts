@@ -130,3 +130,18 @@ export const LOCAL_PONTO = {
 /** Nome do setor a partir do id do banco (setor_juju) */
 export const getSectorName = (setorId: number): Sector | undefined =>
   (Object.keys(SECTOR_ID_MAP) as Sector[]).find(sector => SECTOR_ID_MAP[sector] === setorId);
+
+/**
+ * PROVISÓRIO (13/11/2026): iPhones não entregavam a localização ao navegador e os médicos ficaram
+ * sem bater ponto. Com false, o app tenta ler a localização, mas nunca recusa o ponto por causa
+ * dela: sem posição ou fora do raio, o ponto entra marcado como "sem GPS" para o admin
+ * (função registrar_presenca_sem_gps, sql/adicionar_ponto_sem_gps.sql). Também some o pedido
+ * "Ative o GPS" ao entrar. Para voltar a exigir o GPS, troque para true e publique.
+ */
+export const GPS_OBRIGATORIO = false;
+
+/**
+ * PROVISÓRIO (13/11/2026): o tutorial de novidades diz que o GPS é obrigatório. Fica desligado
+ * (não aparece sozinho e o botão "?" some) até a regra do GPS voltar. Troque para true e publique.
+ */
+export const MOSTRAR_NOVIDADES = false;

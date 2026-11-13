@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { PontoPedido, PontoTroca, User } from '../types';
 import { getSectorName, getShortShift } from '../constants';
-import { buscarMeusPedidos, estaNoPrazo, formatHorario, PRAZO_PEDIDO_DIAS } from '../src/services/pedidoService';
+import { buscarMeusPedidos, emTransicao, estaNoPrazo, formatHorario, PRAZO_PEDIDO_DIAS, TRANSICAO_FIM } from '../src/services/pedidoService';
 import PedidoModal, { PontoAtrasado } from './PedidoModal';
 import PedidoStatus, { TIPO_PEDIDO_LABEL } from './PedidoStatus';
 import TrocaModal from './TrocaModal';
@@ -221,7 +221,9 @@ const MyRecords: React.FC<MyRecordsProps> = ({ currentUser }) => {
                 <span className="flex-1">
                     <span className="block text-base font-bold text-pmp-text-primary dark:text-dark-pmp-text-primary">Esqueci de bater o ponto</span>
                     <span className="block text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary">
-                        Peça o ponto de um plantão de até {PRAZO_PEDIDO_DIAS} dias atrás
+                        {emTransicao()
+                            ? `Até ${formatDateBR(TRANSICAO_FIM).slice(0, 5)}: peça também plantões de setembro, outubro e novembro`
+                            : `Peça o ponto de um plantão de até ${PRAZO_PEDIDO_DIAS} dias atrás`}
                     </span>
                 </span>
                 <span className="text-xl text-pmp-text-secondary dark:text-dark-pmp-text-secondary" aria-hidden="true">›</span>
