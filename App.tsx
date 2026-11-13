@@ -75,6 +75,20 @@ const App: React.FC = () => {
     initSession();
   }, []);
 
+  // Se a sessão cair (login vencido que não renovou), volta para a tela de login.
+  // Sem isso, o app continuava "logado" na tela, mas o banco recebia as consultas como
+  // visitante: algumas telas vinham vazias e "Ganhos" dava erro.
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        setCurrentUser(null);
+        setIsAdmin(false);
+        setCurrentView('dashboard');
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
   const checkIfAdmin = async (userId: string | number) => {
     try {
       const { data } = await supabase
