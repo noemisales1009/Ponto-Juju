@@ -19,6 +19,7 @@ import GpsModal from './components/GpsModal';
 import WhatsNewModal, { jaViuNovidades, marcarNovidadesVistas } from './components/WhatsNewModal';
 import { verificarGps } from './src/services/pontoService';
 import Requests from './components/Requests';
+import LocationReport from './components/LocationReport';
 import { contarPedidosPendentes } from './src/services/pedidoService';
 import { User, View } from './types';
 import { signIn, signOut, getCurrentUser, updateUserProfile } from './services/supabaseService';
@@ -26,7 +27,7 @@ import { supabase } from './services/supabaseClient';
 
 // Telas restritas a administradores. Isto só controla a interface:
 // a barreira real de acesso aos dados é a RLS/permissões no Supabase.
-const ADMIN_VIEWS: View[] = ['financial', 'management', 'staffing', 'admin', 'absence-distribution', 'late-report', 'requests'];
+const ADMIN_VIEWS: View[] = ['financial', 'management', 'staffing', 'admin', 'absence-distribution', 'late-report', 'requests', 'location'];
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -212,6 +213,8 @@ const App: React.FC = () => {
         return <LateReport />;
       case 'requests':
         return <Requests currentUser={currentUser!} onDecided={refreshPendingRequests} />;
+      case 'location':
+        return <LocationReport />;
       default:
         return <Dashboard currentUser={currentUser!} isAdmin={isAdmin} />;
     }

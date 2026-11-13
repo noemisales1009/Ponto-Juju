@@ -150,6 +150,13 @@ const Sidebar: React.FC<SidebarProps> = ({ user, currentView, setCurrentView, is
                       icon={<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>}
                     />
                     <NavLink
+                      isActive={currentView === 'location'}
+                      onClick={() => handleNavClick('location')}
+                      label="Localização"
+                      desktopOnly
+                      icon={<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /></svg>}
+                    />
+                    <NavLink
                       isActive={currentView === 'absence-distribution'}
                       onClick={() => handleNavClick('absence-distribution')}
                       label="Distribuição"
@@ -324,6 +331,20 @@ const Sidebar: React.FC<SidebarProps> = ({ user, currentView, setCurrentView, is
                 </button>
 
                 <button
+                  onClick={() => handleNavClick('location')}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg transition-all hover:scale-105 ${
+                    currentView === 'location'
+                      ? 'bg-pmp-primary text-white'
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200'
+                  }`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                  </svg>
+                  <span className="font-medium text-sm">Localização</span>
+                </button>
+
+                <button
                   onClick={() => handleNavClick('absence-distribution')}
                   className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg transition-all hover:scale-105 ${
                     currentView === 'absence-distribution'
@@ -358,7 +379,7 @@ const Sidebar: React.FC<SidebarProps> = ({ user, currentView, setCurrentView, is
           <button
             onClick={() => setShowAdminMenu(!showAdminMenu)}
             className={`lg:hidden fixed bottom-20 right-4 z-50 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 ease-out hover:scale-110 active:scale-95 no-print ${
-              showAdminMenu || ['staffing', 'financial', 'management', 'reports', 'admin', 'absence-distribution', 'late-report', 'requests'].includes(currentView)
+              showAdminMenu || ['staffing', 'financial', 'management', 'reports', 'admin', 'absence-distribution', 'late-report', 'requests', 'location'].includes(currentView)
                 ? 'bg-gradient-to-br from-pmp-primary to-pmp-primary-dark text-white ring-4 ring-pmp-primary/30' 
                 : 'bg-gradient-to-br from-gray-700 to-gray-800 text-white hover:from-pmp-primary hover:to-pmp-primary-dark'
             }`}
