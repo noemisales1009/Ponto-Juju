@@ -65,6 +65,22 @@ export interface PontoPedido {
   observacao: string | null;
 }
 
+/** Linha da tabela ponto_troca: plantão passado e já pago. O valor vai para o cedente. */
+export interface PontoTroca {
+  id: number;
+  /** Quem passou o plantão e já pagou: recebe o valor */
+  cedente_id: string;
+  /** Quem faz o plantão e bate o ponto */
+  substituto_id: string;
+  data_dia: string;
+  turno: Shift;
+  setor_id: number;
+  status: 'pendente' | 'confirmada' | 'cancelada';
+  ponto_id: number | null;
+  criado_em: string;
+  confirmado_em: string | null;
+}
+
 export interface SectorConfig {
   shifts: Shift[];
   slots: number;

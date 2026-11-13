@@ -98,3 +98,18 @@ export const contarPedidosPendentes = async (): Promise<number> => {
 
 /** "08:30:00" -> "08:30" */
 export const formatHorario = (horario: string | null): string => (horario ? horario.slice(0, 5) : '-');
+
+/** Pedidos de todos os médicos, do mais novo para o mais antigo (a RLS só entrega todos ao admin) */
+export const buscarTodosPedidos = async (limite = 200): Promise<PontoPedido[] | null> => {
+  const { data, error } = await supabase
+    .from('ponto_pedido')
+    .select('*')
+    .order('criado_em', { ascending: false })
+    .limit(limite);
+
+  if (error) {
+    console.error('Erro ao buscar pedidos:', error);
+    return null;
+  }
+  return data || [];
+};

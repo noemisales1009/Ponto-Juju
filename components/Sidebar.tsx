@@ -10,6 +10,8 @@ interface SidebarProps {
   isOpen: boolean; // Not used in bottom nav but kept for desktop legacy
   setIsOpen: (isOpen: boolean) => void;
   isAdmin?: boolean;
+  /** Pedidos aguardando decisão (só admin) */
+  pendingRequests?: number;
 }
 
 const NavLink: React.FC<{
@@ -19,7 +21,8 @@ const NavLink: React.FC<{
     onClick: () => void;
     mobileOnly?: boolean;
     desktopOnly?: boolean;
-}> = ({ icon, label, isActive, onClick, mobileOnly, desktopOnly }) => {
+    badge?: number;
+}> = ({ icon, label, isActive, onClick, mobileOnly, desktopOnly, badge }) => {
     // Classes para Desktop Sidebar
     const desktopBase = `flex items-center w-full p-3 rounded-lg text-base font-normal transition-all duration-300 ease-in-out ${desktopOnly ? '' : ''}`;
     const desktopActive = "bg-pmp-primary/10 dark:bg-dark-pmp-primary/20 text-pmp-primary dark:text-dark-pmp-primary-light shadow-sm font-semibold";
@@ -37,6 +40,9 @@ const NavLink: React.FC<{
                 <button onClick={onClick} className={`${desktopBase} ${isActive ? desktopActive : desktopInactive}`}>
                     {React.cloneElement(icon, { className: "w-6 h-6" })}
                     <span className="ml-4">{label}</span>
+                    {badge ? (
+                        <span className="ml-auto min-w-[22px] h-[22px] px-1.5 rounded-full bg-red-600 text-white text-xs font-bold flex items-center justify-center" aria-label={`${badge} aguardando`}>{badge}</span>
+                    ) : null}
                 </button>
             </li>
 
@@ -59,7 +65,7 @@ const NavLink: React.FC<{
 // Abas da barra inferior, na mesma ordem em que aparecem nela
 const MOBILE_TABS: View[] = ['dashboard', 'my-records', 'earnings', 'reports', 'profile'];
 
-const Sidebar: React.FC<SidebarProps> = ({ user, currentView, setCurrentView, isOpen, setIsOpen, isAdmin = false }) => {
+const Sidebar: React.FC<SidebarProps> = ({ user, currentView, setCurrentView, isOpen, setIsOpen, isAdmin = false, pendingRequests = 0 }) => {
     const [showAdminMenu, setShowAdminMenu] = React.useState(false);
     
     const handleNavClick = (view: View) => {
@@ -127,6 +133,14 @@ const Sidebar: React.FC<SidebarProps> = ({ user, currentView, setCurrentView, is
                       label="Gerência"
                       desktopOnly
                       icon={<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0m-9.75 0h6" /></svg>}
+                    />
+                    <NavLink
+                      isActive={currentView === 'requests'}
+                      onClick={() => handleNavClick('requests')}
+                      label="Pedidos"
+                      desktopOnly
+                      badge={pendingRequests}
+                      icon={<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859m-19.5.338V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 00-2.15-1.588H6.911a2.25 2.25 0 00-2.15 1.588L2.35 13.177a2.25 2.25 0 00-.1.661z" /></svg>}
                     />
                     <NavLink
                       isActive={currentView === 'late-report'}
@@ -279,6 +293,23 @@ const Sidebar: React.FC<SidebarProps> = ({ user, currentView, setCurrentView, is
                 </button>
                 
                 <button
+                  onClick={() => handleNavClick('requests')}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg transition-all hover:scale-105 ${
+                    currentView === 'requests'
+                      ? 'bg-pmp-primary text-white'
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200'
+                  }`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859m-19.5.338V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 00-2.15-1.588H6.911a2.25 2.25 0 00-2.15 1.588L2.35 13.177a2.25 2.25 0 00-.1.661z" />
+                  </svg>
+                  <span className="font-medium text-sm">Pedidos</span>
+                  {pendingRequests > 0 && (
+                    <span className="ml-auto min-w-[22px] h-[22px] px-1.5 rounded-full bg-red-600 text-white text-xs font-bold flex items-center justify-center">{pendingRequests}</span>
+                  )}
+                </button>
+
+                <button
                   onClick={() => handleNavClick('late-report')}
                   className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg transition-all hover:scale-105 ${
                     currentView === 'late-report'
@@ -327,12 +358,15 @@ const Sidebar: React.FC<SidebarProps> = ({ user, currentView, setCurrentView, is
           <button
             onClick={() => setShowAdminMenu(!showAdminMenu)}
             className={`lg:hidden fixed bottom-20 right-4 z-50 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 ease-out hover:scale-110 active:scale-95 no-print ${
-              showAdminMenu || ['staffing', 'financial', 'management', 'reports', 'admin', 'absence-distribution', 'late-report'].includes(currentView)
+              showAdminMenu || ['staffing', 'financial', 'management', 'reports', 'admin', 'absence-distribution', 'late-report', 'requests'].includes(currentView)
                 ? 'bg-gradient-to-br from-pmp-primary to-pmp-primary-dark text-white ring-4 ring-pmp-primary/30' 
                 : 'bg-gradient-to-br from-gray-700 to-gray-800 text-white hover:from-pmp-primary hover:to-pmp-primary-dark'
             }`}
             aria-label="Menu Admin"
           >
+            {pendingRequests > 0 && !showAdminMenu && (
+              <span className="absolute -top-1 -right-1 min-w-[22px] h-[22px] px-1.5 rounded-full bg-red-600 text-white text-xs font-bold flex items-center justify-center ring-2 ring-white dark:ring-gray-900" aria-label={`${pendingRequests} pedidos aguardando`}>{pendingRequests}</span>
+            )}
             {showAdminMenu ? (
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-7 h-7">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

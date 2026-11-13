@@ -126,3 +126,7 @@ export const LOCAL_PONTO = {
   longitude: -44.297487,
   raioMetros: 150,
 };
+
+/** Nome do setor a partir do id do banco (setor_juju) */
+export const getSectorName = (setorId: number): Sector | undefined =>
+  (Object.keys(SECTOR_ID_MAP) as Sector[]).find(sector => SECTOR_ID_MAP[sector] === setorId);

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { User, Sector, Shift, PontoRow } from '../types';
 import { SECTOR_CONFIG, getSectorSlots, SECTOR_ID_MAP, matchesShift } from '../constants';
 import { registrarPonto } from '../src/services/pontoService';
+import { buscarTrocaPendente, confirmarTroca } from '../src/services/trocaService';
 import { supabase } from '../services/supabaseClient';
 import { formatMinutes, formatTimeBR, getTodayLocal, isValidDateISO, toDbTimestamp } from '../utils/date';
 import { friendlyError } from '../utils/errors';
@@ -95,6 +96,31 @@ const ShiftCard: React.FC<{
 
     const canEditRecord = (rec: PontoRow) => String(rec.created_by) === String(currentUser.id) || isAdmin;
 
+    // Um colega avisou que passou este plantão e já pagou: quem bateu o ponto confirma
+    const confirmarTrocaPendente = async () => {
+        const troca = await buscarTrocaPendente(currentUser.id, selectedDate, shift, SECTOR_ID_MAP[sector]);
+        if (!troca) return;
+
+        const { data: cedente } = await supabase
+            .from('usuarios')
+            .select('nome')
+            .eq('user_id', troca.cedente_id)
+            .maybeSingle();
+        const nome = cedente?.nome || 'Um colega';
+
+        const confirmou = window.confirm(
+            `${nome} avisou que passou este plantão para você e JÁ PAGOU.\n\n` +
+            `Confirma? O valor deste plantão vai para ${nome}.\n\n` +
+            'Se você não recebeu, toque em Cancelar: o valor continua seu.'
+        );
+        if (!confirmou) return;
+
+        const resultado = await confirmarTroca(troca.id);
+        alert(resultado.sucesso === false
+            ? `❌ ${resultado.erro} Você pode confirmar depois em Meus Pontos.`
+            : `✅ Troca confirmada. O valor deste plantão vai para ${nome}.`);
+    };
+
     const handleClockIn = async () => {
         if(isFull) {
             const doctors = shiftRecords.map(r => r.medico || 'Desconhecido').join(', ');
@@ -132,6 +158,7 @@ const ShiftCard: React.FC<{
                     : batido_em
                         ? `✅ Ponto batido às ${formatTimeBR(batido_em)}, dentro do prazo de tolerância.`
                         : `✅ Ponto batido com sucesso!`);
+                await confirmarTrocaPendente();
                 onUpdate();
             } else {
                 alert(`❌ ${resultado.erro}`);

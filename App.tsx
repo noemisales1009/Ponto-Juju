@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect, useDeferredValue } from 'react';
+import React, { useState, useMemo, useEffect, useDeferredValue, useCallback } from 'react';
 import LoginScreen from './components/LoginScreen';
 import SplashScreen from './components/SplashScreen';
 import Dashboard from './components/Dashboard';
@@ -16,13 +16,15 @@ import AdminDashboard from './components/AdminDashboard';
 import AbsenceDistribution from './components/AbsenceDistribution';
 import LateReport from './components/LateReport';
 import GpsModal from './components/GpsModal';
+import Requests from './components/Requests';
+import { contarPedidosPendentes } from './src/services/pedidoService';
 import { User, View } from './types';
 import { signIn, signOut, getCurrentUser, updateUserProfile } from './services/supabaseService';
 import { supabase } from './services/supabaseClient';
 
 // Telas restritas a administradores. Isto só controla a interface:
 // a barreira real de acesso aos dados é a RLS/permissões no Supabase.
-const ADMIN_VIEWS: View[] = ['financial', 'management', 'staffing', 'admin', 'absence-distribution', 'late-report'];
+const ADMIN_VIEWS: View[] = ['financial', 'management', 'staffing', 'admin', 'absence-distribution', 'late-report', 'requests'];
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -32,6 +34,7 @@ const App: React.FC = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [isGpsModalOpen, setGpsModalOpen] = useState(false);
+  const [pendingRequests, setPendingRequests] = useState(0);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window !== 'undefined' && window.localStorage) {
       const storedTheme = window.localStorage.getItem('theme');
@@ -86,6 +89,15 @@ const App: React.FC = () => {
       setIsAdmin(false);
     }
   };
+
+  // Pedidos aguardando decisão: aviso no menu do admin, atualizado a cada troca de tela
+  const refreshPendingRequests = useCallback(async () => {
+    setPendingRequests(isAdmin ? await contarPedidosPendentes() : 0);
+  }, [isAdmin]);
+
+  useEffect(() => {
+    refreshPendingRequests();
+  }, [refreshPendingRequests, currentView]);
 
   const handleLogin = async (email: string, password_cleartext: string): Promise<boolean> => {
     setError(null);
@@ -157,10 +169,12 @@ const App: React.FC = () => {
         return <AbsenceDistribution />;
       case 'late-report':
         return <LateReport />;
+      case 'requests':
+        return <Requests currentUser={currentUser!} onDecided={refreshPendingRequests} />;
       default:
         return <Dashboard currentUser={currentUser!} isAdmin={isAdmin} />;
     }
-  }, [deferredView, currentUser, isAdmin]);
+  }, [deferredView, currentUser, isAdmin, refreshPendingRequests]);
 
   if (checkingSession) {
     return <SplashScreen />;
@@ -183,6 +197,7 @@ const App: React.FC = () => {
         isOpen={isSidebarOpen}
         setIsOpen={setSidebarOpen}
         isAdmin={isAdmin}
+        pendingRequests={pendingRequests}
       />
 
       <div className="flex flex-col flex-grow min-h-screen lg:ml-64 transition-all duration-300">
