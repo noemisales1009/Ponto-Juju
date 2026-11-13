@@ -10,9 +10,11 @@ interface HeaderProps {
   onMenuClick: () => void;
   theme: 'light' | 'dark';
   setTheme: (theme: 'light' | 'dark') => void;
+  /** Abre as orientações de como o ponto funciona */
+  onHelpClick: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ user, onLogout, onMenuClick, theme, setTheme }) => {
+const Header: React.FC<HeaderProps> = ({ user, onLogout, onMenuClick, theme, setTheme, onHelpClick }) => {
     const toggleTheme = () => {
         setTheme(theme === 'light' ? 'dark' : 'light');
     };
@@ -27,6 +29,16 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onMenuClick, theme, set
           </div>
 
           <div className="flex items-center space-x-2 sm:space-x-4">
+             <button
+                onClick={onHelpClick}
+                className="p-2 rounded-full text-pmp-text-secondary dark:text-dark-pmp-text-secondary hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-pmp-primary dark:hover:text-dark-pmp-primary transition-colors focus:outline-none"
+                aria-label="Como funciona o ponto"
+                title="Como funciona o ponto"
+             >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+             </button>
              <button
                 onClick={toggleTheme}
                 className="p-2 rounded-full text-pmp-text-secondary dark:text-dark-pmp-text-secondary hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-pmp-primary dark:hover:text-dark-pmp-primary transition-colors focus:outline-none"

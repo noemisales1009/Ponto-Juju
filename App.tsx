@@ -16,6 +16,8 @@ import AdminDashboard from './components/AdminDashboard';
 import AbsenceDistribution from './components/AbsenceDistribution';
 import LateReport from './components/LateReport';
 import GpsModal from './components/GpsModal';
+import WhatsNewModal, { jaViuNovidades, marcarNovidadesVistas } from './components/WhatsNewModal';
+import { verificarGps } from './src/services/pontoService';
 import Requests from './components/Requests';
 import { contarPedidosPendentes } from './src/services/pedidoService';
 import { User, View } from './types';
@@ -34,6 +36,7 @@ const App: React.FC = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [isGpsModalOpen, setGpsModalOpen] = useState(false);
+  const [isNewsOpen, setNewsOpen] = useState(false);
   const [pendingRequests, setPendingRequests] = useState(0);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window !== 'undefined' && window.localStorage) {
@@ -64,6 +67,7 @@ const App: React.FC = () => {
                 setCurrentUser(user);
                 // A sessão fica salva: quem abre o app já logado também precisa ver o pedido do GPS
                 setGpsModalOpen(true);
+                setNewsOpen(!jaViuNovidades(user.id));
                 await checkIfAdmin(user.id);
             }
         } catch (err) {
@@ -119,6 +123,7 @@ const App: React.FC = () => {
         const user = await signIn(email.trim(), password_cleartext);
         setCurrentUser(user);
         setGpsModalOpen(true);
+        setNewsOpen(!jaViuNovidades(user.id));
         await checkIfAdmin(user.id);
         return true;
     } catch (err) {
@@ -131,11 +136,33 @@ const App: React.FC = () => {
     }
   };
 
+  const handleCloseNews = () => {
+    if (currentUser) marcarNovidadesVistas(currentUser.id);
+    setNewsOpen(false);
+  };
+
+  // O GPS é conferido de novo sempre que o médico volta para o app. Se estiver desligado ou
+  // bloqueado, o pedido para ativar aparece outra vez.
+  const currentUserId = currentUser?.id;
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    const conferirGps = async () => {
+      if (document.visibilityState !== 'visible') return;
+      const { ativo } = await verificarGps();
+      if (!ativo) setGpsModalOpen(true);
+    };
+
+    document.addEventListener('visibilitychange', conferirGps);
+    return () => document.removeEventListener('visibilitychange', conferirGps);
+  }, [currentUserId]);
+
   const handleLogout = async () => {
     await signOut();
     setCurrentUser(null);
     setIsAdmin(false);
     setGpsModalOpen(false);
+    setNewsOpen(false);
     setCurrentView('dashboard');
   };
 
@@ -221,13 +248,16 @@ const App: React.FC = () => {
           onMenuClick={() => setSidebarOpen(true)}
           theme={theme}
           setTheme={setTheme}
+          onHelpClick={() => setNewsOpen(true)}
         />
         <main className="p-4 sm:p-6 lg:p-8 flex-grow pb-24 lg:pb-8">
           {MainContent}
         </main>
       </div>
 
-      <GpsModal isOpen={isGpsModalOpen} onClose={() => setGpsModalOpen(false)} />
+      {/* As novidades aparecem primeiro; o pedido do GPS vem depois de fechar */}
+      <GpsModal isOpen={isGpsModalOpen && !isNewsOpen} onClose={() => setGpsModalOpen(false)} />
+      <WhatsNewModal isOpen={isNewsOpen} onClose={handleCloseNews} />
     </div>
   );
 };

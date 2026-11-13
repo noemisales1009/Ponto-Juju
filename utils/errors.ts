@@ -14,7 +14,11 @@ export const friendlyError = (error: DbError | null | undefined, fallback: strin
     case '23505':
       return 'Já existe um registro para este médico neste dia e turno.';
     case '42501':
-      return 'Você não tem permissão para realizar esta ação.';
+      // As regras do ponto (GPS, data de hoje, início do turno) usam este código com uma mensagem
+      // escrita para o médico. O Postgres usa o mesmo código para permissão negada, em inglês.
+      return error?.message && !/permission denied|row-level security|violates/i.test(error.message)
+        ? error.message
+        : 'Você não tem permissão para realizar esta ação.';
     case 'PT400':
       // Mensagens das funções de pedido (sql/adicionar_pedidos_ponto.sql), escritas para o médico
       return error?.message || fallback;

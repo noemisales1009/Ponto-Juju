@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { User, Sector, Shift, PontoRow } from '../types';
-import { SECTOR_CONFIG, getSectorSlots, SECTOR_ID_MAP, matchesShift } from '../constants';
+import { SECTOR_CONFIG, getSectorSlots, SECTOR_ID_MAP, SHIFT_START_HOUR, matchesShift } from '../constants';
 import { registrarPonto } from '../src/services/pontoService';
 import { buscarTrocaPendente, confirmarTroca } from '../src/services/trocaService';
 import { supabase } from '../services/supabaseClient';
@@ -93,6 +93,10 @@ const ShiftCard: React.FC<{
     const hasClockedIn = shiftPresences.some(r => String(r.user_id) === String(currentUser.id));
     const hasAbsence = shiftAbsences.some(r => String(r.user_id) === String(currentUser.id));
     const isToday = selectedDate === getTodayLocal();
+    // O banco só aceita o ponto a partir do início do turno (sql/adicionar_atraso_ponto.sql)
+    const startHour = SHIFT_START_HOUR[shift];
+    const hasStarted = new Date().getHours() >= startHour;
+    const canClockNow = isToday && hasStarted;
 
     const canEditRecord = (rec: PontoRow) => String(rec.created_by) === String(currentUser.id) || isAdmin;
 
@@ -210,11 +214,11 @@ const ShiftCard: React.FC<{
             <div className="mt-4 flex items-center gap-2">
                 <button
                     onClick={handleClockIn}
-                    disabled={isFull || hasClockedIn || hasAbsence || isSaving || !isToday}
+                    disabled={isFull || hasClockedIn || hasAbsence || isSaving || !canClockNow}
                     className="flex-1 py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-pmp-primary dark:bg-dark-pmp-primary hover:bg-pmp-primary-dark dark:hover:bg-dark-pmp-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pmp-primary-light disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:text-gray-500 dark:disabled:text-gray-400 disabled:cursor-not-allowed transition-colors shadow-sm"
                     title={hasClockedIn ? `Ponto batido por ${currentUser.name}` : ''}
                 >
-                    {isSaving ? 'Registrando...' : hasClockedIn ? `✓ ${currentUser.name}` : hasAbsence ? 'Falta Registrada' : isToday ? 'Bater Ponto' : 'Só na data de hoje'}
+                    {isSaving ? 'Registrando...' : hasClockedIn ? `✓ ${currentUser.name}` : hasAbsence ? 'Falta Registrada' : !isToday ? 'Só na data de hoje' : !hasStarted ? `A partir das ${String(startHour).padStart(2, '0')}:00` : 'Bater Ponto'}
                 </button>
                 <button
                     onClick={onRegisterAbsence}
