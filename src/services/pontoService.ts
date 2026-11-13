@@ -62,10 +62,20 @@ export const verificarGps = (): Promise<{ ativo: boolean; erro?: string }> =>
 /**
  * 📍 Obter a posição do aparelho e confirmar que ele está no hospital
  */
-const obterLocalizacaoNoHospital = (): Promise<{ localizacao?: Localizacao; erro?: string }> =>
+// semGps: o aparelho não entregou nenhuma posição (bloqueada, sem sinal, sem suporte).
+// É diferente de estar fora do hospital, que continua sendo recusado.
+type ResultadoLocalizacao = { localizacao?: Localizacao; erro?: string; semGps?: string };
+
+const MOTIVO_SEM_GPS: Record<number, string> = {
+  1: 'Localização bloqueada no aparelho ou no navegador',
+  2: 'Aparelho não conseguiu obter a posição',
+  3: 'Tempo esgotado ao buscar a posição',
+};
+
+const pedirPosicao = (altaPrecisao: boolean): Promise<ResultadoLocalizacao> =>
   new Promise((resolve) => {
     if (!navigator.geolocation) {
-      resolve({ erro: ERRO_SEM_GPS });
+      resolve({ erro: ERRO_SEM_GPS, semGps: 'Navegador sem suporte a localização' });
       return;
     }
 
@@ -96,11 +106,27 @@ const obterLocalizacaoNoHospital = (): Promise<{ localizacao?: Localizacao; erro
       },
       (erro) => {
         console.error('Erro ao obter localização:', erro);
-        resolve({ erro: mensagemErroGps(erro) });
+        resolve({
+          erro: mensagemErroGps(erro),
+          semGps: `${MOTIVO_SEM_GPS[erro.code] ?? 'Erro de localização'}${erro.message ? ` (${erro.message})` : ''}`,
+        });
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      { enableHighAccuracy: altaPrecisao, timeout: altaPrecisao ? 15000 : 10000, maximumAge: 0 }
     );
   });
+
+/**
+ * 📍 Obter a posição do aparelho e confirmar que ele está no hospital.
+ * Em ambiente fechado o GPS de alta precisão pode não responder (comum no iPhone): se falhar,
+ * tenta de novo com a posição aproximada (Wi-Fi/rede) antes de desistir.
+ */
+const obterLocalizacaoNoHospital = async (): Promise<ResultadoLocalizacao> => {
+  const primeira = await pedirPosicao(true);
+  if (!primeira.semGps || !navigator.geolocation) return primeira;
+
+  const segunda = await pedirPosicao(false);
+  return segunda.semGps ? { ...segunda, semGps: primeira.semGps } : segunda;
+};
 
 /**
  * ✅ Verificar se o médico já bateu ponto no MESMO TURNO
@@ -149,7 +175,7 @@ export const registrarPonto = async (
   data: string | Date,
   turno: string,
   setorId: number
-): Promise<{ sucesso: boolean; erro?: string; dados?: any }> => {
+): Promise<{ sucesso: boolean; erro?: string; dados?: any; semGps?: boolean }> => {
   const dataDia = toDateISO(data);
 
   // Validação de entrada
@@ -205,7 +231,32 @@ export const registrarPonto = async (
   }
 
   // ✅ Validação: só bate ponto se o GPS indicar que está no hospital
-  const { localizacao, erro: erroLocalizacao } = await obterLocalizacaoNoHospital();
+  const { localizacao, erro: erroLocalizacao, semGps } = await obterLocalizacaoNoHospital();
+
+  // Aparelho sem localização (ex.: iPhone que não libera o GPS ao navegador): o ponto é aceito
+  // mesmo assim e fica marcado como "sem GPS" para o admin (sql/adicionar_ponto_sem_gps.sql).
+  // Fora do hospital, com GPS funcionando, continua recusado.
+  if (!localizacao && semGps) {
+    const { data: resultado, error } = await supabase.rpc('registrar_presenca_sem_gps', {
+      p_data_dia: dataDia,
+      p_turno: turno,
+      p_setor_id: setorId,
+      p_motivo: semGps.slice(0, 300),
+      p_aparelho: (navigator.userAgent || '').slice(0, 300),
+    });
+
+    if (error) {
+      console.error('Erro ao registrar ponto sem GPS:', error);
+      // Função ainda não criada ou desligada pelo admin: vale a regra do GPS
+      const semFuncao = error.code === 'PGRST202' || error.code === '42883';
+      return {
+        sucesso: false,
+        erro: semFuncao ? erroLocalizacao : friendlyError(error, 'Não foi possível registrar o ponto. Tente novamente.'),
+      };
+    }
+
+    return { sucesso: true, dados: resultado, semGps: true };
+  }
 
   if (!localizacao) {
     return {

@@ -162,6 +162,9 @@ const ShiftCard: React.FC<{
                     : batido_em
                         ? `✅ Ponto batido às ${formatTimeBR(batido_em)}, dentro do prazo de tolerância.`
                         : `✅ Ponto batido com sucesso!`);
+                if (resultado.semGps) {
+                    alert('Atenção: este ponto foi registrado SEM localização, porque o aparelho não liberou o GPS. A administração vê essa informação.');
+                }
                 await confirmarTrocaPendente();
                 onUpdate();
             } else {

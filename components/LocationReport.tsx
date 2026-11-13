@@ -18,6 +18,8 @@ interface Linha {
     batidoEm: string | null;
     /** Sem posição: ponto esquecido aprovado, lançado pelo admin ou anterior à regra do GPS */
     local: { latitude: number; longitude: number; precisao: number | null; distancia: number } | null;
+    /** Batido pelo médico em aparelho que não entregou a localização (sql/adicionar_ponto_sem_gps.sql) */
+    semGpsMotivo: string | null;
 }
 
 const SECTORS = (Object.keys(SECTOR_ID_MAP) as Sector[]).filter(sector => !DISABLED_SECTORS.includes(sector));
@@ -66,7 +68,7 @@ const LocationReport: React.FC = () => {
                 const pontoIds = (pontos || []).map(p => p.id);
                 const userIds = [...new Set((pontos || []).map(p => p.user_id))];
 
-                const [locais, medicos, usuarios] = await Promise.all([
+                const [locais, medicos, usuarios, semGps] = await Promise.all([
                     pontoIds.length
                         ? supabase.from('ponto_localizacao').select('ponto_id, latitude, longitude, precisao_metros, distancia_metros').in('ponto_id', pontoIds)
                         : Promise.resolve({ data: [], error: null }),
@@ -76,7 +78,17 @@ const LocationReport: React.FC = () => {
                     userIds.length
                         ? supabase.from('usuarios').select('user_id, nome').in('user_id', userIds)
                         : Promise.resolve({ data: [], error: null }),
+                    pontoIds.length
+                        ? supabase.from('ponto_sem_gps').select('ponto_id, motivo').in('ponto_id', pontoIds)
+                        : Promise.resolve({ data: [], error: null }),
                 ]);
+
+                // Tabela ainda não criada: a tela funciona, só sem o motivo
+                if (semGps.error) console.error('Erro ao buscar pontos sem GPS:', semGps.error);
+                const motivos = new Map(
+                    ((semGps.data || []) as { ponto_id: number; motivo: string | null }[])
+                        .map(s => [s.ponto_id, s.motivo || 'Aparelho não liberou a localização'])
+                );
 
                 if (cancelled) return;
                 if (locais.error) throw locais.error;
@@ -106,6 +118,7 @@ const LocationReport: React.FC = () => {
                         local: local
                             ? { latitude: local.latitude, longitude: local.longitude, precisao: local.precisao_metros, distancia: local.distancia_metros }
                             : null,
+                        semGpsMotivo: motivos.get(p.id) ?? null,
                     };
                 });
 
@@ -232,7 +245,13 @@ const LocationReport: React.FC = () => {
                                             <td className={tdClass}>{linha.turno}</td>
                                             <td className={tdClass}>{linha.setor}</td>
                                             <td className={tdClass}>{linha.batidoEm ? formatTimeBR(linha.batidoEm) : '-'}</td>
-                                            <td className={tdClass}>{linha.local ? `${Math.round(linha.local.distancia)} m do centro` : 'Sem GPS'}</td>
+                                            <td className={tdClass}>
+                                                {linha.local ? `${Math.round(linha.local.distancia)} m do centro` : linha.semGpsMotivo ? (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 text-xs font-medium" title={linha.semGpsMotivo}>
+                                                        Sem GPS: {linha.semGpsMotivo.split(' (')[0]}
+                                                    </span>
+                                                ) : 'Sem GPS'}
+                                            </td>
                                             <td className={tdClass}>{linha.local?.precisao != null ? `± ${Math.round(linha.local.precisao)} m` : '-'}</td>
                                         </tr>
                                     ))}
