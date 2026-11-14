@@ -17,6 +17,7 @@ import AbsenceDistribution from './components/AbsenceDistribution';
 import LateReport from './components/LateReport';
 import GpsModal from './components/GpsModal';
 import { GPS_OBRIGATORIO, MOSTRAR_NOVIDADES } from './constants';
+import TrocaLembrete from './components/TrocaLembrete';
 import WhatsNewModal, { conferirNovidades, marcarNovidadesVistas } from './components/WhatsNewModal';
 import { verificarGps } from './src/services/pontoService';
 import Requests from './components/Requests';
@@ -262,6 +263,7 @@ const App: React.FC = () => {
       {/* As novidades aparecem primeiro; o pedido do GPS vem depois de fechar */}
       <GpsModal isOpen={isGpsModalOpen && !isNewsOpen} onClose={() => setGpsModalOpen(false)} />
       <WhatsNewModal isOpen={isNewsOpen} onClose={handleCloseNews} isAdmin={isAdmin} />
+      {!isNewsOpen && !isGpsModalOpen && <TrocaLembrete key={String(currentUser.id)} currentUser={currentUser} />}
     </div>
   );
 };

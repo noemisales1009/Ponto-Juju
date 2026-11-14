@@ -6,6 +6,7 @@ import { buscarMeusPedidos, emTransicao, estaNoPrazo, formatHorario, PRAZO_PEDID
 import PedidoModal, { PontoAtrasado } from './PedidoModal';
 import PedidoStatus, { TIPO_PEDIDO_LABEL } from './PedidoStatus';
 import TrocaModal from './TrocaModal';
+import { avisarTrocaAtualizada } from './TrocaLembrete';
 import { buscarMinhasTrocas, cancelarTroca, confirmarTroca } from '../src/services/trocaService';
 import { supabase } from '../services/supabaseClient';
 import { formatDateBR, formatMinutes, formatTimeBR, getCurrentMonthLocal, getTodayLocal } from '../utils/date';
@@ -84,6 +85,7 @@ const MyRecords: React.FC<MyRecordsProps> = ({ currentUser }) => {
             return;
         }
         carregarTrocas();
+        avisarTrocaAtualizada();
         setRecarregar(n => n + 1);
     };
 
@@ -262,14 +264,27 @@ const MyRecords: React.FC<MyRecordsProps> = ({ currentUser }) => {
                                         <p className="text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary">
                                             {passei
                                                 ? confirmada
-                                                    ? `${nomeTroca(troca.substituto_id)} fez o plantão. O valor entra no seu pagamento.`
-                                                    : `Você passou para ${nomeTroca(troca.substituto_id)}. Falta bater o ponto e confirmar.`
+                                                    ? troca.ponto_id
+                                                        ? `${nomeTroca(troca.substituto_id)} fez o plantão. O valor entra no seu pagamento.`
+                                                        : `${nomeTroca(troca.substituto_id)} confirmou. Falta bater o ponto no dia.`
+                                                    : `Você passou para ${nomeTroca(troca.substituto_id)}. Falta ${nomeTroca(troca.substituto_id)} confirmar.`
                                                 : confirmada
-                                                    ? `Você fez o plantão de ${nomeTroca(troca.cedente_id)}. O valor vai para ${nomeTroca(troca.cedente_id)}.`
+                                                    ? troca.ponto_id
+                                                        ? `Você fez o plantão de ${nomeTroca(troca.cedente_id)}. O valor vai para ${nomeTroca(troca.cedente_id)}.`
+                                                        : `Você confirmou. Ao bater o ponto deste plantão, o valor vai para ${nomeTroca(troca.cedente_id)}.`
                                                     : `${nomeTroca(troca.cedente_id)} avisou que passou este plantão para você e já pagou.`}
                                         </p>
                                     </div>
-                                    {confirmada ? (
+                                    {confirmada && passei && !troca.ponto_id ? (
+                                        <button
+                                            type="button"
+                                            disabled={trocaOcupada !== null}
+                                            onClick={() => handleTroca(troca, 'cancelar')}
+                                            className="min-h-[40px] px-4 rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-slate-300 dark:border-slate-600 text-pmp-text-secondary dark:text-dark-pmp-text-secondary hover:bg-slate-100 dark:hover:bg-slate-700/40"
+                                        >
+                                            {trocaOcupada === troca.id ? 'Salvando...' : 'Cancelar troca'}
+                                        </button>
+                                    ) : confirmada ? (
                                         <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap bg-green-100 dark:bg-green-500/20 text-green-800 dark:text-green-300">Confirmada</span>
                                     ) : (
                                         <button

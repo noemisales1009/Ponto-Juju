@@ -8,6 +8,7 @@ import { formatMinutes, formatTimeBR, getTodayLocal, isValidDateISO, toDbTimesta
 import { friendlyError } from '../utils/errors';
 import { formatBRL } from '../utils/finance';
 import AbsenceModal from './AbsenceModal';
+import { avisarTrocaAtualizada } from './TrocaLembrete';
 import EditPontoModal from './EditPontoModal';
 
 const RecordItem: React.FC<{
@@ -120,6 +121,7 @@ const ShiftCard: React.FC<{
         if (!confirmou) return;
 
         const resultado = await confirmarTroca(troca.id);
+        avisarTrocaAtualizada();
         alert(resultado.sucesso === false
             ? `❌ ${resultado.erro} Você pode confirmar depois em Meus Pontos.`
             : `✅ Troca confirmada. O valor deste plantão vai para ${nome}.`);
