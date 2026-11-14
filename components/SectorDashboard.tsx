@@ -525,6 +525,22 @@ const SectorDashboard: React.FC<SectorDashboardProps> = ({ sector, currentUser, 
                 </div>
             </div>
 
+            {!GPS_OBRIGATORIO && (
+                <div className="flex items-start gap-3 p-4 rounded-xl border border-pmp-primary/30 dark:border-dark-pmp-primary/30 bg-pmp-primary/10 dark:bg-dark-pmp-primary/20" role="note">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 shrink-0 text-pmp-primary dark:text-dark-pmp-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                        <p className="font-bold text-pmp-text-primary dark:text-dark-pmp-text-primary">
+                            Você pode bater o ponto mesmo sem a localização.
+                        </p>
+                        <p className="text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary mt-1">
+                            Se o celular não liberar o GPS, o ponto é registrado do mesmo jeito. Só aguarde alguns segundos depois de tocar em bater o ponto.
+                        </p>
+                    </div>
+                </div>
+            )}
+
             <div>
                 {loading ? (
                     <div className="flex items-center justify-center py-8">
