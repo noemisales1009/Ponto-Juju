@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { User, Sector, Shift, PontoRow } from '../types';
 import { GPS_OBRIGATORIO, SECTOR_CONFIG, getSectorSlots, SECTOR_ID_MAP, SHIFT_START_HOUR, matchesShift } from '../constants';
-import { registrarPonto } from '../src/services/pontoService';
+import { PONTO_LIVRE, dataLiberadaSemPedido, pontoLivreAtivo, registrarPonto } from '../src/services/pontoService';
 import { buscarTrocaPendente, confirmarTroca } from '../src/services/trocaService';
 import { supabase } from '../services/supabaseClient';
-import { formatMinutes, formatTimeBR, getTodayLocal, isValidDateISO, toDbTimestamp } from '../utils/date';
+import { formatDateBR, formatMinutes, formatTimeBR, getTodayLocal, isValidDateISO, toDbTimestamp } from '../utils/date';
 import { friendlyError } from '../utils/errors';
 import { formatBRL } from '../utils/finance';
 import AbsenceModal from './AbsenceModal';
@@ -97,7 +97,9 @@ const ShiftCard: React.FC<{
     // O banco só aceita o ponto a partir do início do turno (sql/adicionar_atraso_ponto.sql)
     const startHour = SHIFT_START_HOUR[shift];
     const hasStarted = new Date().getHours() >= startHour;
-    const canClockNow = isToday && hasStarted;
+    // Plantões de set/out de 2026: liberados sem pedido, por prazo (pontoService.PONTO_LIVRE)
+    const isFreeDate = dataLiberadaSemPedido(selectedDate);
+    const canClockNow = (isToday && hasStarted) || isFreeDate;
 
     const canEditRecord = (rec: PontoRow) => String(rec.created_by) === String(currentUser.id) || isAdmin;
 
@@ -223,7 +225,7 @@ const ShiftCard: React.FC<{
                     className="flex-1 py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-pmp-primary dark:bg-dark-pmp-primary hover:bg-pmp-primary-dark dark:hover:bg-dark-pmp-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pmp-primary-light disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:text-gray-500 dark:disabled:text-gray-400 disabled:cursor-not-allowed transition-colors shadow-sm"
                     title={hasClockedIn ? `Ponto batido por ${currentUser.name}` : ''}
                 >
-                    {isSaving ? 'Registrando...' : hasClockedIn ? `✓ ${currentUser.name}` : hasAbsence ? 'Falta Registrada' : !isToday ? 'Só na data de hoje' : !hasStarted ? `A partir das ${String(startHour).padStart(2, '0')}:00` : 'Bater Ponto'}
+                    {isSaving ? 'Registrando...' : hasClockedIn ? `✓ ${currentUser.name}` : hasAbsence ? 'Falta Registrada' : isFreeDate ? 'Bater Ponto' : !isToday ? 'Só na data de hoje' : !hasStarted ? `A partir das ${String(startHour).padStart(2, '0')}:00` : 'Bater Ponto'}
                 </button>
                 <button
                     onClick={onRegisterAbsence}
@@ -526,6 +528,23 @@ const SectorDashboard: React.FC<SectorDashboardProps> = ({ sector, currentUser, 
                     </div>
                 </div>
             </div>
+
+            {pontoLivreAtivo() && (
+                <div className="flex items-start gap-3 p-4 rounded-xl border border-pmp-primary/30 dark:border-dark-pmp-primary/30 bg-pmp-primary/10 dark:bg-dark-pmp-primary/20" role="note">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 shrink-0 text-pmp-primary dark:text-dark-pmp-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <div>
+                        <p className="font-bold text-pmp-text-primary dark:text-dark-pmp-text-primary">
+                            Plantões de setembro e outubro: pode bater o ponto direto, sem justificativa.
+                        </p>
+                        <p className="text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary mt-1">
+                            Escolha a data do plantão acima e toque em Bater Ponto. Vale até {formatDateBR(PONTO_LIVRE.prazo)}.
+                            Plantões de novembro em dias passados continuam por "Esqueci de bater o ponto", em Meus Pontos.
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {!GPS_OBRIGATORIO && (
                 <div className="flex items-start gap-3 p-4 rounded-xl border border-pmp-primary/30 dark:border-dark-pmp-primary/30 bg-pmp-primary/10 dark:bg-dark-pmp-primary/20" role="note">

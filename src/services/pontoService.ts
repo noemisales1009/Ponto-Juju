@@ -178,6 +178,18 @@ export const verificarPontoDuplicado = async (
 };
 
 /**
+ * PROVISÓRIO (17/11/2026): até `prazo`, plantões de `inicio` a `fim` podem ser batidos direto,
+ * sem pedido de "Esqueci de bater". Entram sem horário e sem desconto.
+ * Igual ao banco: sql/liberar_ponto_set_out.sql (mudar lá também).
+ */
+export const PONTO_LIVRE = { inicio: '2026-09-01', fim: '2026-10-31', prazo: '2026-11-30' };
+
+export const pontoLivreAtivo = (): boolean => getTodayLocal() <= PONTO_LIVRE.prazo;
+
+export const dataLiberadaSemPedido = (dataDia: string): boolean =>
+  pontoLivreAtivo() && dataDia >= PONTO_LIVRE.inicio && dataDia <= PONTO_LIVRE.fim;
+
+/**
  * 🕐 Registrar o ponto de PRESENÇA do próprio médico (falta é gravada pela tela de Plantões)
  */
 export const registrarPonto = async (
@@ -200,15 +212,17 @@ export const registrarPonto = async (
   }
 
   // ✅ Validação: só bate na data de hoje, a partir do início do turno
+  // (exceção provisória: plantões de set/out de 2026, ver PONTO_LIVRE)
   const hoje = getTodayLocal();
+  const livre = dataLiberadaSemPedido(dataDia);
 
-  if (dataDia !== hoje) {
+  if (dataDia !== hoje && !livre) {
     return { sucesso: false, erro: `O ponto só pode ser batido na data de hoje (${formatDateBR(hoje)}).` };
   }
 
   const horaInicio = SHIFT_START_HOUR[turno as Shift];
 
-  if (new Date().getHours() < horaInicio) {
+  if (!livre && new Date().getHours() < horaInicio) {
     return {
       sucesso: false,
       erro: `O ponto da ${turno} só pode ser batido a partir das ${String(horaInicio).padStart(2, '0')}:00.`,
@@ -238,6 +252,24 @@ export const registrarPonto = async (
   // O banco grava sempre no nome de quem está logado
   if (String(userId) !== currentUser.id) {
     return { sucesso: false, erro: 'Só é possível bater o próprio ponto.' };
+  }
+
+  // Plantão antigo liberado: não tem localização para conferir. Vai pela mesma função do ponto
+  // sem GPS, e o banco aceita a data (sql/liberar_ponto_set_out.sql).
+  if (livre) {
+    const { data: resultado, error } = await supabase.rpc('registrar_presenca_sem_gps', {
+      p_data_dia: dataDia,
+      p_turno: turno,
+      p_setor_id: setorId,
+      p_motivo: `Plantão de set/out lançado em ${formatDateBR(hoje)} (liberado sem justificativa)`,
+      p_aparelho: (navigator.userAgent || '').slice(0, 300),
+    });
+
+    if (error) {
+      console.error('Erro ao registrar ponto de set/out:', error);
+      return { sucesso: false, erro: friendlyError(error, 'Não foi possível registrar o ponto. Tente novamente.') };
+    }
+    return { sucesso: true, dados: resultado };
   }
 
   // ✅ Validação: só bate ponto se o GPS indicar que está no hospital
