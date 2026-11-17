@@ -58,7 +58,7 @@ const TrocaLembrete: React.FC<TrocaLembreteProps> = ({ currentUser }) => {
     }, [carregar]);
 
     const confirmar = async (troca: PontoTroca, nome: string) => {
-        if (!window.confirm(`Confirma que ${nome} já pagou você por este plantão? O valor vai para ${nome}.`)) return;
+        if (!window.confirm(`Confirma que ${nome} já pagou você por este plantão? O valor vai inteiro para ${nome}.`)) return;
 
         setOcupada(troca.id);
         const resultado = await confirmarTroca(troca.id);
@@ -69,8 +69,8 @@ const TrocaLembrete: React.FC<TrocaLembreteProps> = ({ currentUser }) => {
             return;
         }
         alert(resultado.troca.ponto_id
-            ? `✅ Troca confirmada. O valor deste plantão vai para ${nome}.`
-            : `✅ Troca confirmada. Quando você bater o ponto deste plantão, o valor vai para ${nome}.`);
+            ? `✅ Troca confirmada. O valor deste plantão vai inteiro para ${nome}.`
+            : `✅ Troca confirmada. Quando você bater o ponto deste plantão, o valor vai inteiro para ${nome}.`);
         avisarTrocaAtualizada();
     };
 
@@ -100,7 +100,7 @@ const TrocaLembrete: React.FC<TrocaLembreteProps> = ({ currentUser }) => {
                                 </p>
                                 <p className="text-sm text-amber-900 dark:text-amber-100 mt-2">
                                     <strong>{nome}</strong> avisou que passou este plantão para você e que <strong>já pagou</strong>.
-                                    Ao confirmar, o valor do plantão vai para {nome}.
+                                    Ao confirmar, o valor do plantão vai inteiro para {nome}.
                                 </p>
                                 <p className="text-sm text-amber-800 dark:text-amber-200/80 mt-2">
                                     {futuro

@@ -117,7 +117,7 @@ const ShiftCard: React.FC<{
 
         const confirmou = window.confirm(
             `${nome} avisou que passou este plantão para você e JÁ PAGOU.\n\n` +
-            `Confirma? O valor deste plantão vai para ${nome}.\n\n` +
+            `Confirma? O valor deste plantão vai inteiro para ${nome}.\n\n` +
             'Se você não recebeu, toque em Cancelar: o valor continua seu.'
         );
         if (!confirmou) return;
@@ -126,7 +126,7 @@ const ShiftCard: React.FC<{
         avisarTrocaAtualizada();
         alert(resultado.sucesso === false
             ? `❌ ${resultado.erro} Você pode confirmar depois em Meus Pontos.`
-            : `✅ Troca confirmada. O valor deste plantão vai para ${nome}.`);
+            : `✅ Troca confirmada. O valor deste plantão vai inteiro para ${nome}, sem desconto por atraso.`);
     };
 
     const handleClockIn = async () => {
@@ -159,13 +159,16 @@ const ShiftCard: React.FC<{
             );
 
             if (resultado.sucesso) {
-                const { batido_em, minutos_atraso, desconto_atraso } = resultado.dados ?? {};
+                const { batido_em, minutos_atraso, desconto_atraso, recebedor_id } = resultado.dados ?? {};
                 const desconto = Number(desconto_atraso);
-                alert(desconto > 0
-                    ? `⚠️ Ponto batido às ${formatTimeBR(batido_em)}, com ${formatMinutes(minutos_atraso)} de atraso. Desconto de ${formatBRL(desconto)} no plantão.`
-                    : batido_em
-                        ? `✅ Ponto batido às ${formatTimeBR(batido_em)}, dentro do prazo de tolerância.`
-                        : `✅ Ponto batido com sucesso!`);
+                // Troca já confirmada: o banco gravou quem recebe e não descontou o atraso
+                alert(recebedor_id
+                    ? `✅ Ponto batido${batido_em ? ` às ${formatTimeBR(batido_em)}` : ''}${Number(minutos_atraso) > 0 ? `, com ${formatMinutes(minutos_atraso)} de atraso` : ''}. Plantão de troca: o valor vai inteiro para o colega que passou o plantão.`
+                    : desconto > 0
+                        ? `⚠️ Ponto batido às ${formatTimeBR(batido_em)}, com ${formatMinutes(minutos_atraso)} de atraso. Desconto de ${formatBRL(desconto)} no plantão.`
+                        : batido_em
+                            ? `✅ Ponto batido às ${formatTimeBR(batido_em)}, dentro do prazo de tolerância.`
+                            : `✅ Ponto batido com sucesso!`);
                 if (resultado.semGps && GPS_OBRIGATORIO) {
                     alert('Atenção: este ponto foi registrado SEM localização, porque o aparelho não liberou o GPS. A administração vê essa informação.');
                 }

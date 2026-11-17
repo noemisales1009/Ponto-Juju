@@ -112,7 +112,7 @@ const TrocaModal: React.FC<TrocaModalProps> = ({ isOpen, onClose, onSent, curren
                 <div className="mb-5 space-y-2 text-sm leading-relaxed text-pmp-text-secondary dark:text-dark-pmp-text-secondary">
                     <p>
                         Use só quando você <strong>já pagou</strong> o colega que vai fazer o plantão no seu lugar.
-                        Ele bate o ponto e confirma; o valor do plantão entra no seu pagamento.
+                        Ele bate o ponto e confirma; o valor do plantão entra inteiro no seu pagamento.
                     </p>
                     <p>
                         Se você só passou o plantão, sem pagar, não precisa avisar: o colega bate o ponto e recebe normalmente.

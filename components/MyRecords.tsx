@@ -73,7 +73,7 @@ const MyRecords: React.FC<MyRecordsProps> = ({ currentUser }) => {
 
     const handleTroca = async (troca: PontoTroca, acao: 'confirmar' | 'cancelar') => {
         const nome = nomeTroca(troca.cedente_id);
-        if (acao === 'confirmar' && !window.confirm(`Confirma que ${nome} já pagou você por este plantão? O valor vai para ${nome}.`)) return;
+        if (acao === 'confirmar' && !window.confirm(`Confirma que ${nome} já pagou você por este plantão? O valor vai inteiro para ${nome}.`)) return;
         if (acao === 'cancelar' && !window.confirm('Cancelar este aviso de troca?')) return;
 
         setTrocaOcupada(troca.id);
@@ -242,7 +242,7 @@ const MyRecords: React.FC<MyRecordsProps> = ({ currentUser }) => {
                 <span className="flex-1">
                     <span className="block text-base font-bold text-pmp-text-primary dark:text-dark-pmp-text-primary">Passei meu plantão e já paguei</span>
                     <span className="block text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary">
-                        O colega bate o ponto e o valor entra no seu pagamento
+                        O colega bate o ponto e o valor entra inteiro no seu pagamento
                     </span>
                 </span>
                 <span className="text-xl text-pmp-text-secondary dark:text-dark-pmp-text-secondary" aria-hidden="true">›</span>
@@ -265,13 +265,13 @@ const MyRecords: React.FC<MyRecordsProps> = ({ currentUser }) => {
                                             {passei
                                                 ? confirmada
                                                     ? troca.ponto_id
-                                                        ? `${nomeTroca(troca.substituto_id)} fez o plantão. O valor entra no seu pagamento.`
+                                                        ? `${nomeTroca(troca.substituto_id)} fez o plantão. O valor entra inteiro no seu pagamento.`
                                                         : `${nomeTroca(troca.substituto_id)} confirmou. Falta bater o ponto no dia.`
                                                     : `Você passou para ${nomeTroca(troca.substituto_id)}. Falta ${nomeTroca(troca.substituto_id)} confirmar.`
                                                 : confirmada
                                                     ? troca.ponto_id
-                                                        ? `Você fez o plantão de ${nomeTroca(troca.cedente_id)}. O valor vai para ${nomeTroca(troca.cedente_id)}.`
-                                                        : `Você confirmou. Ao bater o ponto deste plantão, o valor vai para ${nomeTroca(troca.cedente_id)}.`
+                                                        ? `Você fez o plantão de ${nomeTroca(troca.cedente_id)}. O valor vai inteiro para ${nomeTroca(troca.cedente_id)}.`
+                                                        : `Você confirmou. Ao bater o ponto deste plantão, o valor vai inteiro para ${nomeTroca(troca.cedente_id)}.`
                                                     : `${nomeTroca(troca.cedente_id)} avisou que passou este plantão para você e já pagou.`}
                                         </p>
                                     </div>

@@ -5,7 +5,8 @@ import { friendlyError } from '../../utils/errors';
 /**
  * Plantão passado e já pago (sql/adicionar_troca_ponto.sql):
  *  - quem passou o plantão (cedente) avisa no app
- *  - quem fez o plantão (substituto) bate o ponto e confirma: o valor vai para o cedente
+ *  - quem fez o plantão (substituto) bate o ponto e confirma: o valor vai inteiro para o
+ *    cedente, sem desconto por atraso (sql/ajustar_troca_valor_inteiro.sql)
  * As regras ficam no banco. Aqui só chamamos as funções.
  */
 
