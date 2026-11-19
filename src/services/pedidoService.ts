@@ -33,6 +33,13 @@ export const TRANSICAO_FIM = '2026-11-30';
 
 export const emTransicao = (): boolean => getTodayLocal() <= TRANSICAO_FIM;
 
+/**
+ * Justificativa de atraso: até TRANSICAO_FIM não tem prazo; depois volta para PRAZO_PEDIDO_DIAS.
+ * Igual ao banco: sql/ajustar_prazo_justificativa_atraso.sql
+ */
+export const podeJustificarAtraso = (dataDia: string): boolean =>
+  dataDia <= getTodayLocal() && (emTransicao() || estaNoPrazo(dataDia));
+
 /** Primeiro dia aceito no pedido de ponto esquecido, "YYYY-MM-DD" */
 export const getPrimeiroDiaPontoEsquecido = (): string => {
   const normal = getPrimeiroDiaNoPrazo();

@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { PontoPedido, PontoTroca, User } from '../types';
 import { getSectorName, getShortShift } from '../constants';
-import { buscarMeusPedidos, emTransicao, estaNoPrazo, formatHorario, PRAZO_PEDIDO_DIAS, TRANSICAO_FIM } from '../src/services/pedidoService';
+import { buscarMeusPedidos, emTransicao, podeJustificarAtraso, formatHorario, PRAZO_PEDIDO_DIAS, TRANSICAO_FIM } from '../src/services/pedidoService';
 import PedidoModal, { PontoAtrasado } from './PedidoModal';
 import PedidoStatus, { TIPO_PEDIDO_LABEL } from './PedidoStatus';
 import TrocaModal from './TrocaModal';
@@ -377,7 +377,7 @@ const MyRecords: React.FC<MyRecordsProps> = ({ currentUser }) => {
                                 <span className="w-full flex justify-end pt-1">
                                     {pedidoDoPonto.has(record.id) ? (
                                         <PedidoStatus status={pedidoDoPonto.get(record.id)!.status} />
-                                    ) : estaNoPrazo(record.data_dia) ? (
+                                    ) : podeJustificarAtraso(record.data_dia) ? (
                                         <button
                                             type="button"
                                             onClick={() => abrirPedido(record)}
