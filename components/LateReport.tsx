@@ -3,29 +3,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Sector } from '../types';
 import { LOCAL_PONTO, SECTOR_CONFIG, SECTOR_ID_MAP, getShortShift } from '../constants';
 import { supabase } from '../services/supabaseClient';
-import { escapeHtml, PRINT_CSP_META } from '../utils/html';
 import { formatDateBR, formatMinutes, formatTimeBR, getCurrentMonthLocal, getMonthRange } from '../utils/date';
 import { formatBRL } from '../utils/finance';
-
-interface LateRecord {
-  id: number;
-  userId: string;
-  nome: string;
-  dataDia: string;
-  turno: string;
-  setor: string;
-  batidoEm: string | null;
-  minutos: number;
-  desconto: number;
-}
-
-interface DoctorSummary {
-  userId: string;
-  nome: string;
-  atrasos: number;
-  minutos: number;
-  desconto: number;
-}
+import {
+  buildLateReportHtml, formatDia,
+  DoctorSummary, Justificativa, JustificativaSummary, LateRecord,
+} from '../utils/lateReportHtml';
+import { formatHorario } from '../src/services/pedidoService';
+import PedidoStatus from './PedidoStatus';
 
 const SECTOR_NAMES = new Map(
   (Object.keys(SECTOR_ID_MAP) as Sector[]).map(sector => [SECTOR_ID_MAP[sector], sector])
@@ -38,6 +23,7 @@ const LateReport: React.FC = () => {
   const [isPrinting, setIsPrinting] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [records, setRecords] = useState<LateRecord[]>([]);
+  const [justificativas, setJustificativas] = useState<Justificativa[]>([]);
 
   useEffect(() => {
     // Ignora respostas de buscas antigas se o mês/setor mudar enquanto carrega
@@ -63,18 +49,37 @@ const LateReport: React.FC = () => {
           query = query.eq('setor_id', SECTOR_ID_MAP[selectedSector]);
         }
 
-        const { data, error } = await query.order('data_dia', { ascending: true }).order('id', { ascending: true });
+        // Justificativas dos plantões do mês (a RLS só entrega as de todos ao admin)
+        let pedidosQuery = supabase
+          .from('ponto_pedido')
+          .select('id, user_id, data_dia, turno, setor_id, horario, motivo, status, minutos_atraso, desconto_original, decidido_por, decidido_em')
+          .eq('tipo', 'atraso')
+          .gte('data_dia', start)
+          .lte('data_dia', end);
+
+        if (selectedSector !== 'all') {
+          pedidosQuery = pedidosQuery.eq('setor_id', SECTOR_ID_MAP[selectedSector]);
+        }
+
+        const [{ data, error }, { data: pedidos, error: pedidosError }] = await Promise.all([
+          query.order('data_dia', { ascending: true }).order('id', { ascending: true }),
+          pedidosQuery.order('data_dia', { ascending: true }).order('id', { ascending: true }),
+        ]);
 
         if (cancelled) return;
 
-        if (error) {
-          console.error('Erro ao buscar atrasos:', error);
+        if (error || pedidosError) {
+          console.error('Erro ao buscar atrasos:', error || pedidosError);
           setLoadError(true);
           setRecords([]);
+          setJustificativas([]);
           return;
         }
 
-        const userIds = [...new Set((data || []).map(r => r.user_id))];
+        const userIds = [...new Set([
+          ...(data || []).map(r => r.user_id),
+          ...(pedidos || []).flatMap(p => [p.user_id, p.decidido_por]),
+        ].filter(Boolean))];
         const [{ data: medicos }, { data: usuarios }] = await Promise.all([
           supabase.from('medicos_juju').select('user_id, medico').in('user_id', userIds),
           supabase.from('usuarios').select('user_id, nome').in('user_id', userIds),
@@ -102,11 +107,28 @@ const LateReport: React.FC = () => {
           minutos: r.minutos_atraso,
           desconto: Number(r.desconto_atraso),
         })));
+
+        setJustificativas((pedidos || []).map(p => ({
+          id: p.id,
+          userId: p.user_id,
+          nome: nomes.get(p.user_id) || 'Médico não identificado',
+          dataDia: p.data_dia,
+          turno: p.turno,
+          setor: SECTOR_NAMES.get(p.setor_id) ?? 'Sem setor',
+          horario: p.horario,
+          minutos: p.minutos_atraso ?? 0,
+          desconto: Number(p.desconto_original ?? 0),
+          motivo: p.motivo,
+          status: p.status,
+          decididoPor: p.decidido_por ? (nomes.get(p.decidido_por) || 'Admin não identificado') : null,
+          decididoEm: p.decidido_em,
+        })));
       } catch (err) {
         if (cancelled) return;
         console.error('Erro geral ao buscar atrasos:', err);
         setLoadError(true);
         setRecords([]);
+        setJustificativas([]);
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -129,10 +151,36 @@ const LateReport: React.FC = () => {
   }, [records]);
 
   const totalDesconto = records.reduce((total, r) => total + r.desconto, 0);
+
+  const justificativaSummary = useMemo(() => {
+    const grouped = new Map<string, JustificativaSummary>();
+    justificativas.forEach(j => {
+      const doctor = grouped.get(j.userId)
+        ?? { userId: j.userId, nome: j.nome, total: 0, aprovadas: 0, recusadas: 0, pendentes: 0, descontoRetirado: 0 };
+      doctor.total += 1;
+      if (j.status === 'aprovado') {
+        doctor.aprovadas += 1;
+        doctor.descontoRetirado += j.desconto;
+      } else if (j.status === 'recusado') {
+        doctor.recusadas += 1;
+      } else {
+        doctor.pendentes += 1;
+      }
+      grouped.set(j.userId, doctor);
+    });
+    return Array.from(grouped.values()).sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome, 'pt-BR'));
+  }, [justificativas]);
+
+  const justAprovadas = justificativas.filter(j => j.status === 'aprovado');
+  const justRecusadas = justificativas.filter(j => j.status === 'recusado').length;
+  const justPendentes = justificativas.filter(j => j.status === 'pendente').length;
+  const totalRetirado = justAprovadas.reduce((total, j) => total + j.desconto, 0);
+  const temDados = records.length > 0 || justificativas.length > 0;
+
   const sectorText = selectedSector === 'all' ? 'Todos os Setores' : selectedSector;
 
   const handlePrint = () => {
-    if (records.length === 0) return;
+    if (!temDados) return;
 
     const [year, month] = selectedMonth.split('-').map(Number);
     const periodText = new Date(year, month - 1, 1)
@@ -142,120 +190,16 @@ const LateReport: React.FC = () => {
       hour: '2-digit', minute: '2-digit',
     });
 
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        ${PRINT_CSP_META}
-        <title>Atrasos do Mês</title>
-        <style>
-          @page { size: A4; margin: 20mm 15mm; }
-          body { font-family: Arial, sans-serif; color: #111; font-size: 13px; }
-          .header { margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 14px; }
-          h1 { font-size: 22px; font-weight: 800; margin: 0 0 4px; }
-          .subtitle { font-size: 13px; color: #6b7280; margin: 0; }
-          .gerado { font-size: 11px; color: #9ca3af; margin-top: 4px; }
-          .summary { display: flex; gap: 16px; margin-bottom: 24px; }
-          .box { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 16px; flex: 1; }
-          .box-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; color: #b45309; }
-          .box-value { font-size: 22px; font-weight: 800; color: #92400e; }
-          h2 { font-size: 15px; font-weight: 700; margin: 24px 0 6px; border-left: 4px solid #374151; padding-left: 8px; }
-          table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 8px; }
-          th { background: #f3f4f6; font-weight: 700; font-size: 12px; color: #374151;
-               padding: 10px 12px; border: 1px solid #e5e7eb; text-align: left; white-space: nowrap; }
-          td { padding: 10px 12px; border: 1px solid #e5e7eb; vertical-align: top; }
-          tr:nth-child(even) td { background: #f9fafb; }
-          .right { text-align: right; white-space: nowrap; }
-          .center { text-align: center; }
-          .nowrap { white-space: nowrap; }
-          .foot td { background: #fffbeb !important; font-weight: 700; color: #92400e; }
-          .nota { font-size: 11px; color: #6b7280; margin-top: 16px; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>Atrasos do Mês</h1>
-          <p class="subtitle">${escapeHtml(LOCAL_PONTO.nome)}</p>
-          <p class="subtitle">Setor: ${escapeHtml(sectorText)} &nbsp;|&nbsp; Período: ${escapeHtml(periodText)}</p>
-          <p class="gerado">Gerado em: ${escapeHtml(geradoEm)}</p>
-        </div>
-
-        <div class="summary">
-          <div class="box">
-            <div class="box-label">Médicos com atraso</div>
-            <div class="box-value">${doctorSummary.length}</div>
-          </div>
-          <div class="box">
-            <div class="box-label">Atrasos</div>
-            <div class="box-value">${records.length}</div>
-          </div>
-          <div class="box">
-            <div class="box-label">Total descontado</div>
-            <div class="box-value">${formatBRL(totalDesconto)}</div>
-          </div>
-        </div>
-
-        <h2>Resumo por Médico</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Médico</th>
-              <th class="center">Atrasos</th>
-              <th class="right">Tempo de atraso</th>
-              <th class="right">Desconto</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${doctorSummary.map(d => `
-              <tr>
-                <td>${escapeHtml(d.nome)}</td>
-                <td class="center">${d.atrasos}</td>
-                <td class="right">${escapeHtml(formatMinutes(d.minutos))}</td>
-                <td class="right">${formatBRL(d.desconto)}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-          <tfoot>
-            <tr class="foot">
-              <td colspan="3">Total descontado</td>
-              <td class="right">${formatBRL(totalDesconto)}</td>
-            </tr>
-          </tfoot>
-        </table>
-
-        <h2>Detalhamento por Data</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Data</th>
-              <th>Médico</th>
-              <th>Setor</th>
-              <th>Turno</th>
-              <th class="center">Horário</th>
-              <th class="right">Atraso</th>
-              <th class="right">Desconto</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${records.map(r => `
-              <tr>
-                <td class="nowrap">${escapeHtml(formatDateBR(r.dataDia))}</td>
-                <td>${escapeHtml(r.nome)}</td>
-                <td class="nowrap">${escapeHtml(r.setor)}</td>
-                <td class="nowrap">${escapeHtml(r.turno)}</td>
-                <td class="center">${r.batidoEm ? escapeHtml(formatTimeBR(r.batidoEm)) : '—'}</td>
-                <td class="right">${escapeHtml(formatMinutes(r.minutos))}</td>
-                <td class="right">${formatBRL(r.desconto)}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-
-        <p class="nota">O médico tem 1 hora de tolerância a partir do início do turno (Manhã 07:00, Tarde 13:00, Noite 19:00). Só é descontado o tempo que passar dessa 1 hora.</p>
-      </body>
-      </html>
-    `;
+    const htmlContent = buildLateReportHtml({
+      local: LOCAL_PONTO.nome,
+      periodo: periodText,
+      setor: sectorText,
+      geradoEm,
+      records,
+      doctorSummary,
+      justificativas,
+      justificativaSummary,
+    });
 
     setIsPrinting(true);
     const printWindow = window.open('', '_blank');
@@ -281,10 +225,10 @@ const LateReport: React.FC = () => {
             Atrasos do Mês
           </h1>
           <p className="text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary mt-1">
-            Médicos que bateram o ponto depois da tolerância de 1 hora
+            Médicos que bateram o ponto depois da tolerância de 1 hora e as justificativas enviadas
           </p>
         </div>
-        {records.length > 0 && (
+        {temDados && (
           <button
             onClick={handlePrint}
             disabled={isPrinting}
@@ -338,10 +282,10 @@ const LateReport: React.FC = () => {
         <div className="p-4 text-sm font-medium text-red-800 dark:text-red-300 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-xl" role="alert">
           Não foi possível carregar os atrasos. Tente novamente.
         </div>
-      ) : records.length === 0 ? (
+      ) : !temDados ? (
         <div className="text-center py-16 bg-pmp-surface dark:bg-dark-pmp-surface rounded-xl border border-gray-200 dark:border-gray-700">
           <p className="text-pmp-text-secondary dark:text-dark-pmp-text-secondary font-medium">
-            Nenhum atraso registrado
+            Nenhum atraso e nenhuma justificativa
           </p>
           <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
             para {sectorText} no período selecionado
@@ -349,6 +293,12 @@ const LateReport: React.FC = () => {
         </div>
       ) : (
         <>
+          {records.length === 0 ? (
+            <div className="p-4 text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary bg-pmp-surface dark:bg-dark-pmp-surface rounded-xl border border-gray-200 dark:border-gray-700">
+              Nenhum atraso com desconto para {sectorText} no período selecionado.
+            </div>
+          ) : (
+          <>
           {/* Cards de resumo */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-amber-50 dark:bg-amber-500/10 rounded-xl p-4 border border-amber-200 dark:border-amber-500/30">
@@ -434,6 +384,117 @@ const LateReport: React.FC = () => {
               </table>
             </div>
           </div>
+          </>
+          )}
+
+          {/* Justificativas de atraso */}
+          <div className="pt-4">
+            <h2 className="text-xl font-bold text-pmp-text-primary dark:text-dark-pmp-text-primary">
+              Justificativas de atraso
+            </h2>
+            <p className="text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary mt-1">
+              Aprovada: o desconto é retirado e o atraso sai da lista acima. Recusada ou aguardando: o desconto continua.
+            </p>
+          </div>
+
+          {justificativas.length === 0 ? (
+            <div className="p-4 text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary bg-pmp-surface dark:bg-dark-pmp-surface rounded-xl border border-gray-200 dark:border-gray-700">
+              Nenhuma justificativa de atraso para {sectorText} no período selecionado.
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                {[
+                  { rotulo: 'Justificativas', valor: String(justificativas.length) },
+                  { rotulo: 'Aprovadas', valor: String(justAprovadas.length) },
+                  { rotulo: 'Recusadas', valor: String(justRecusadas) },
+                  { rotulo: 'Aguardando', valor: String(justPendentes) },
+                  { rotulo: 'Desconto retirado', valor: formatBRL(totalRetirado) },
+                ].map(card => (
+                  <div key={card.rotulo} className="bg-pmp-surface dark:bg-dark-pmp-surface rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+                    <p className="text-xs font-semibold text-pmp-text-secondary dark:text-dark-pmp-text-secondary uppercase tracking-wide">
+                      {card.rotulo}
+                    </p>
+                    <p className="text-2xl sm:text-3xl font-bold text-pmp-text-primary dark:text-dark-pmp-text-primary mt-1">{card.valor}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="bg-pmp-surface dark:bg-dark-pmp-surface rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <h3 className="px-4 py-3 text-base font-semibold text-pmp-text-primary dark:text-dark-pmp-text-primary border-b border-gray-200 dark:border-gray-700">
+                  Justificativas por Médico
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead>
+                      <tr>
+                        <th scope="col" className={`${headerCell} text-left`}>Médico</th>
+                        <th scope="col" className={`${headerCell} text-center`}>Justificativas</th>
+                        <th scope="col" className={`${headerCell} text-center`}>Aprovadas</th>
+                        <th scope="col" className={`${headerCell} text-center`}>Recusadas</th>
+                        <th scope="col" className={`${headerCell} text-center`}>Aguardando</th>
+                        <th scope="col" className={`${headerCell} text-right`}>Desconto retirado</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
+                      {justificativaSummary.map(d => (
+                        <tr key={d.userId}>
+                          <td className={`${bodyCell} font-medium !text-pmp-text-primary dark:!text-dark-pmp-text-primary`}>{d.nome}</td>
+                          <td className={`${bodyCell} text-center`}>{d.total}</td>
+                          <td className={`${bodyCell} text-center`}>{d.aprovadas}</td>
+                          <td className={`${bodyCell} text-center`}>{d.recusadas}</td>
+                          <td className={`${bodyCell} text-center`}>{d.pendentes}</td>
+                          <td className={`${bodyCell} text-right font-semibold !text-pmp-text-primary dark:!text-dark-pmp-text-primary`}>{formatBRL(d.descontoRetirado)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="bg-pmp-surface dark:bg-dark-pmp-surface rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <h3 className="px-4 py-3 text-base font-semibold text-pmp-text-primary dark:text-dark-pmp-text-primary border-b border-gray-200 dark:border-gray-700">
+                  Justificativas por Data
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead>
+                      <tr>
+                        <th scope="col" className={`${headerCell} text-left`}>Data</th>
+                        <th scope="col" className={`${headerCell} text-left`}>Médico</th>
+                        <th scope="col" className={`${headerCell} text-left`}>Setor</th>
+                        <th scope="col" className={`${headerCell} text-left`}>Turno</th>
+                        <th scope="col" className={`${headerCell} text-center`}>Horário</th>
+                        <th scope="col" className={`${headerCell} text-right`}>Atraso</th>
+                        <th scope="col" className={`${headerCell} text-right`}>Desconto</th>
+                        <th scope="col" className={`${headerCell} text-left`}>Motivo informado</th>
+                        <th scope="col" className={`${headerCell} text-left`}>Situação</th>
+                        <th scope="col" className={`${headerCell} text-left`}>Decidido por</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
+                      {justificativas.map(j => (
+                        <tr key={j.id} className="align-top">
+                          <td className={bodyCell}>{formatDateBR(j.dataDia)}</td>
+                          <td className={`${bodyCell} font-medium !text-pmp-text-primary dark:!text-dark-pmp-text-primary`}>{j.nome}</td>
+                          <td className={bodyCell}>{j.setor}</td>
+                          <td className={bodyCell}>{j.turno}</td>
+                          <td className={`${bodyCell} text-center`}>{formatHorario(j.horario)}</td>
+                          <td className={`${bodyCell} text-right`}>{formatMinutes(j.minutos)}</td>
+                          <td className={`${bodyCell} text-right`}>{formatBRL(j.desconto)}</td>
+                          <td className="px-4 py-3 text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary min-w-[16rem] max-w-md break-words">{j.motivo}</td>
+                          <td className={bodyCell}><PedidoStatus status={j.status} /></td>
+                          <td className={bodyCell}>
+                            {j.decididoPor ? `${j.decididoPor}${j.decididoEm ? ` · ${formatDia(j.decididoEm)}` : ''}` : '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
         </>
       )}
     </div>

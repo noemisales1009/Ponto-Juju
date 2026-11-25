@@ -330,7 +330,7 @@ const MyRecords: React.FC<MyRecordsProps> = ({ currentUser }) => {
                                     </p>
                                     {pedido.observacao && (
                                         <p className="mt-1 text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary break-words">
-                                            <strong>Administração:</strong> {pedido.observacao}
+                                            <strong>{pedido.decidido_por ? 'Administração' : 'Sistema'}:</strong> {pedido.observacao}
                                         </p>
                                     )}
                                 </div>

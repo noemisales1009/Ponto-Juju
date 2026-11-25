@@ -238,7 +238,8 @@ const Requests: React.FC<RequestsProps> = ({ currentUser, onDecided }) => {
                                     </p>
                                     <p className="text-sm text-pmp-text-secondary dark:text-dark-pmp-text-secondary">{quando(pedido)}</p>
                                     <p className="text-xs text-pmp-text-secondary dark:text-dark-pmp-text-secondary mt-1 break-words">
-                                        Decidido por {nomeDe(pedido.decidido_por)}
+                                        {/* Sem decidido_por: encerrado pelo banco (sql/ajustar_pedido_um_por_plantao.sql) */}
+                                        {pedido.decidido_por ? `Decidido por ${nomeDe(pedido.decidido_por)}` : 'Encerrado pelo sistema'}
                                         {pedido.decidido_em ? ` em ${formatDateBR(pedido.decidido_em.slice(0, 10))}` : ''}
                                         {pedido.observacao ? ` · ${pedido.observacao}` : ''}
                                     </p>
