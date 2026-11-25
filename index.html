@@ -18,7 +18,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script>
       // Aplica o tema imediatamente para evitar FOUC (Flash of Unstyled Content)
       if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -33,6 +33,8 @@
           extend: {
             fontFamily: {
               sans: ['Inter', 'sans-serif'],
+              // Letra arredondada do nome "Ponto Kids" e do relógio na tela de entrada
+              display: ['Fredoka', 'Inter', 'sans-serif'],
             },
             colors: {
               // Light theme - Updated to Slate for softer look
@@ -129,9 +131,14 @@
       .abertura-icone { width: 96px; height: 96px; border-radius: 24px; display: flex; align-items: center; justify-content: center;
         background: linear-gradient(135deg, rgb(var(--cor-primaria)), rgb(var(--cor-secundaria)));
         box-shadow: 0 20px 25px -5px rgba(0,0,0,.25), 0 8px 10px -6px rgba(0,0,0,.2); animation: abertura-pulso 2s cubic-bezier(.4,0,.6,1) infinite; }
-      .abertura-titulo { font-size: 30px; line-height: 36px; font-weight: 700; letter-spacing: -0.025em; color: #1E293B; }
+      .abertura-titulo { font-family: 'Fredoka', 'Inter', sans-serif; font-size: 30px; line-height: 36px; font-weight: 600; letter-spacing: -0.01em; color: #1E293B; }
       .dark .abertura-titulo { color: #F1F5F9; }
       @keyframes abertura-pulso { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+
+      /* Ilustração do fundo (components/IlustracaoPonto.tsx): sobe e aparece uma vez, ao entrar no app */
+      .enfeite-entrada { animation: enfeite-entrada 1.1s cubic-bezier(.2,.8,.2,1) .25s both; }
+      @keyframes enfeite-entrada { from { opacity: 0; transform: translateY(32px) scale(.95); } to { opacity: 1; transform: none; } }
+      @media (prefers-reduced-motion: reduce) { .enfeite-entrada { animation: none; } }
 
       /* Simple print styles as a fallback for browser's print function (Ctrl+P) */
       @media print {

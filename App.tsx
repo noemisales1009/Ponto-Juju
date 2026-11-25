@@ -18,6 +18,7 @@ import LateReport from './components/LateReport';
 import GpsModal from './components/GpsModal';
 import { GPS_OBRIGATORIO, MOSTRAR_NOVIDADES } from './constants';
 import TrocaLembrete from './components/TrocaLembrete';
+import IlustracaoPonto from './components/IlustracaoPonto';
 import WhatsNewModal, { conferirNovidades, marcarNovidadesVistas } from './components/WhatsNewModal';
 import { verificarGps } from './src/services/pontoService';
 import Requests from './components/Requests';
@@ -247,6 +248,11 @@ const App: React.FC = () => {
       />
 
       <div className="flex flex-col flex-grow min-h-screen lg:ml-64 transition-all duration-300">
+        {/* Enfeite do fundo: a ilustração da médica batendo o ponto, bem suave, presa no pé da tela
+            (celular: no meio, acima da barra de baixo; computador: no canto direito).
+            Fica antes do <main> e sem z-index de propósito: assim o conteúdo (relative) passa por cima,
+            e as janelas que abrem dentro das telas continuam acima da barra e do botão do admin. */}
+        <IlustracaoPonto className="fixed inset-x-0 bottom-16 mx-auto w-44 opacity-50 dark:opacity-35 lg:inset-x-auto lg:bottom-0 lg:right-8 lg:mx-0 lg:w-[19rem] lg:opacity-70 lg:dark:opacity-45 no-print" />
         <Header
           user={currentUser}
           onLogout={handleLogout}
@@ -255,7 +261,7 @@ const App: React.FC = () => {
           setTheme={setTheme}
           onHelpClick={MOSTRAR_NOVIDADES ? () => setNewsOpen(true) : undefined}
         />
-        <main className="p-4 sm:p-6 lg:p-8 flex-grow pb-24 lg:pb-8">
+        <main className="relative p-4 sm:p-6 lg:p-8 flex-grow pb-24 lg:pb-8">
           {MainContent}
         </main>
       </div>
