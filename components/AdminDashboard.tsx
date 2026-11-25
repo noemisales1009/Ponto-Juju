@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { User } from '../types';
-import { escapeHtml, csvCell, PRINT_CSP_META } from '../utils/html';
+import { csvCell } from '../utils/html';
+import { LOCAL_PONTO } from '../constants';
+import { buildAdminReportPdf } from '../utils/adminReportPdf';
 import { FinanceTotalsRow, formatBRL, getValorAPagar, getValorTotal } from '../utils/finance';
 
 interface MedicoRelatorio extends FinanceTotalsRow {
@@ -146,107 +148,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, onBack }) 
             return;
         }
 
-        const periodText = selectedMonth 
-            ? `${selectedMonth}/${selectedYear}`
-            : `Ano ${selectedYear}`;
-
-        // Gerar HTML do PDF diretamente
-        const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            ${PRINT_CSP_META}
-            <title>Relatório Administrativo</title>
-            <style>
-                @page { size: A4 landscape; margin: 20mm 15mm; }
-                body {
-                    font-family: 'Arial', sans-serif;
-                    color: #000;
-                    font-size: 14px;
-                }
-                h1 {
-                    font-size: 22px;
-                    font-weight: 800;
-                    margin-bottom: 6px;
-                }
-                h2 {
-                    font-size: 15px;
-                    font-weight: 500;
-                    margin-bottom: 20px;
-                    color: #4B5563;
-                }
-                table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    font-size: 16px;
-                    margin-top: 16px;
-                }
-                th, td {
-                    border: 1px solid #E5E7EB;
-                    padding: 12px 16px;
-                    text-align: left;
-                }
-                th {
-                    background-color: #F3F4F6;
-                    font-weight: 700;
-                    font-size: 15px;
-                    color: #374151;
-                    white-space: nowrap;
-                }
-                tr:nth-child(even) { background-color: #F9FAFB; }
-                .text-center { text-align: center; }
-                .text-right  { text-align: right; white-space: nowrap; }
-            </style>
-        </head>
-        <body>
-            <h1>Relatório Administrativo - Plantões e Faturamento</h1>
-            <h2>Período: ${escapeHtml(periodText)}</h2>
-            
-            <table>
-                <thead>
-                    <tr>
-                        <th>Médico</th>
-                        <th>Banco</th>
-                        <th>Agência</th>
-                        <th>Conta</th>
-                        <th class="text-center">Plantões</th>
-                        <th class="text-center">Faltas</th>
-                        <th class="text-right">Valor a Pagar</th>
-                        <th class="text-right">Valor com Desconto</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${relatorio.map(medico => {
-                        return `
-                        <tr>
-                            <td>${escapeHtml(medico.medico_nome)}</td>
-                            <td>${escapeHtml(medico.banco || '-')}</td>
-                            <td>${escapeHtml(medico.agencia || '-')}</td>
-                            <td>${escapeHtml(medico.conta || '-')}</td>
-                            <td class="text-center">${escapeHtml(medico.total_plantao_realizados)}</td>
-                            <td class="text-center">${escapeHtml(medico.total_faltas)}</td>
-                            <td class="text-right">${formatBRL(getValorTotal(medico))}</td>
-                            <td class="text-right">${formatBRL(getValorAPagar(medico))}</td>
-                        </tr>
-                        `;
-                    }).join('')}
-                </tbody>
-            </table>
-        </body>
-        </html>
-        `;
-
-        // Abrir nova janela e imprimir
-        const printWindow = window.open('', '_blank');
-        if (printWindow) {
-            printWindow.document.write(htmlContent);
-            printWindow.document.close();
-            printWindow.focus();
-            setTimeout(() => {
-                printWindow.print();
-            }, 250);
+        // A biblioteca vem de CDN (index.html); se não carregar, avisa em vez de quebrar
+        const jsPDF = (window as any).jspdf?.jsPDF;
+        if (!jsPDF) {
+            alert('Erro ao carregar a biblioteca de PDF. Tente novamente.');
+            return;
         }
+
+        // Arquivo PDF de verdade (antes era a impressão do navegador, que no celular saía diferente)
+        const pdf = buildAdminReportPdf(jsPDF, {
+            local: LOCAL_PONTO.nome,
+            periodo: selectedMonth ? `${selectedMonth} de ${selectedYear}` : `Ano de ${selectedYear}`,
+            geradoEm: new Date().toLocaleDateString('pt-BR', {
+                day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+            }),
+            mostrarMes: !selectedMonth,
+            linhas: relatorio,
+        });
+
+        const mes = selectedMonth ? `-${selectedMonth.toLowerCase().normalize('NFD').replace(/[^a-z]/g, '')}` : '';
+        pdf.save(`relatorio-administrativo-${selectedYear}${mes}.pdf`);
     };
 
     const totalGeral = relatorio.reduce((sum, m) => sum + getValorTotal(m), 0);
