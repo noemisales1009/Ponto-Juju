@@ -98,7 +98,8 @@ const MyRecords: React.FC<MyRecordsProps> = ({ currentUser }) => {
         return mapa;
     }, [pedidos]);
 
-    // Buscar os registros do próprio usuário no Supabase
+    // Buscar os pontos do médico: os que ele bateu e os de plantões que ele passou e já pagou
+    // (troca confirmada: o colega bate, o ponto fica no nome do colega e o valor vem para cá)
     useEffect(() => {
         // Ignora a resposta se o usuário mudar enquanto carrega
         let cancelled = false;
@@ -109,7 +110,7 @@ const MyRecords: React.FC<MyRecordsProps> = ({ currentUser }) => {
                 const { data: pontos, error } = await supabase
                     .from('ponto_juju2')
                     .select('*')
-                    .eq('user_id', currentUser.id)
+                    .or(`user_id.eq.${currentUser.id},recebedor_id.eq.${currentUser.id}`)
                     .order('data_dia', { ascending: false });
 
                 if (cancelled) return;
@@ -149,7 +150,8 @@ const MyRecords: React.FC<MyRecordsProps> = ({ currentUser }) => {
     }, [userRecords, filterType, selectedMonth, startDate, endDate]);
 
     const lateRecords = useMemo(
-        () => filteredRecords.filter(r => r.falta !== 'Sim' && Number(r.desconto_atraso) > 0),
+        () => filteredRecords.filter(r =>
+            String(r.user_id) === String(currentUser.id) && r.falta !== 'Sim' && Number(r.desconto_atraso) > 0),
         [filteredRecords]
     );
     const totalDiscount = lateRecords.reduce((total, r) => total + Number(r.desconto_atraso), 0);
@@ -426,12 +428,18 @@ const MyRecords: React.FC<MyRecordsProps> = ({ currentUser }) => {
                                         {Number(record.valor_plantao) ? `R$ ${Number(record.valor_plantao).toFixed(2)}` : '-'}
                                         {record.recebedor_id && (
                                             <span className="block text-xs font-medium text-pmp-text-secondary dark:text-dark-pmp-text-secondary">
-                                                Vai para {nomeTroca(record.recebedor_id)}
+                                                {String(record.recebedor_id) === String(currentUser.id)
+                                                    ? `Troca: feito por ${nomeTroca(record.user_id)}`
+                                                    : `Vai para ${nomeTroca(record.recebedor_id)}`}
                                             </span>
                                         )}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        {record.falta === 'Sim' ? (
+                                        {record.recebedor_id && String(record.recebedor_id) === String(currentUser.id) ? (
+                                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-teal-100 dark:bg-teal-500/20 text-teal-800 dark:text-teal-300 text-xs font-medium">
+                                                <span>⇄</span> Troca: valor recebido
+                                            </span>
+                                        ) : record.falta === 'Sim' ? (
                                             <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-100 dark:bg-red-500/20 text-red-800 dark:text-red-300 text-xs font-medium">
                                                 <span>✗</span> Falta
                                             </span>
